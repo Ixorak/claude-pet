@@ -102,6 +102,10 @@ servent à la compter).
 - **Il grimpe plus souvent** : il escalade les côtés d'une page agrandie (une fenêtre maximisée), même quand le sol
   continue sur l'écran voisin ; il saute sur les fenêtres et escalade leurs côtés plus souvent, et quand il n'y a rien
   à portée, il essaie une autre escalade au lieu de rester en bas.
+- **Langues** : Pet parle anglais par défaut, et français au choix (Réglages → Langue, EN / FR, ou le menu de l'icône).
+  Ta copie reste en français. L'installateur parle anglais ou français, selon la langue de Windows.
+- **Sur GitHub** : https://github.com/Ixorak/claude-pet, avec un README en anglais (et sa version française), deux GIF
+  animés, la vidéo de démo (`docs/demo.mp4`, 75 s) et l'installateur dans la version 1.0.0.
 
 **Performances** (mesurées sur le PC d'Ixorak, 20 cœurs logiques) : assis, 0,16 à 0,19 % d'un cœur ; endormi, 0,47 % ; caché ou
 Ixorak absent, presque rien ; en mouvement, moins de 1 % d'un cœur ; environ 30 Mo de mémoire. La boucle ne tourne jamais
@@ -148,7 +152,8 @@ quand il est caché), et la sortie audio se ferme après 3 s de silence.
 - **Clics** : simple clic jugé 0,25 s après ; énervé après 5 tapes en 4 s, pendant 30 s ; quand le pointeur passe
   au-dessus de lui, il saute l'attraper 6 fois sur 10 (puis attend 6 à 12 s) ; assis sur le pointeur de 40 s à 2 min,
   puis il saute ; « secouer » = au moins 3 allers-retours rapides en 0,7 s.
-- **Bulles** : disposées en deux colonnes au-dessus de sa tête, jauge en haut, panneau Réglages qui s'ouvre au-dessus.
+- **Bulles** : disposées en deux colonnes au-dessus de sa tête, jauge en haut, panneau Réglages (volume, taille,
+  langue) qui s'ouvre au-dessus.
 - **Baie** : clic gauche pour la poser par terre (sinon Ixorak ne pourrait plus cliquer nulle part tant que Pet n'a pas
   mangé), clic droit pour l'annuler. Une baie oubliée au sol disparaît après 2 min 30.
 - **Faim** : compteur « temps PC allumé » (`QueryUnbiasedInterruptTime`, qui ne compte ni la veille ni l'hibernation) ;
@@ -202,8 +207,27 @@ quand il est caché), et la sortie audio se ferme après 3 s de silence.
   `hunger 3.5`, `windows`, `fs 1 on`, `stats`, `debug climb`, `debug climbwin`, et des tests avec un pointeur
   imaginaire qui ne touchent pas à la vraie souris : `debug swingtest`, `debug swinglow`, `debug reachtest`,
   `debug pettest`, `debug sittest`, `debug perchtest` (assis sur le pointeur, avec une occupation) ; ses occupations : `debug coffee`, `debug laptop`, `debug music`, `debug read`,
-  `debug bubbles` ; son humeur : `debug happy`, `debug meh`, `debug sad` ; `debug climbpage`). Sans ces options, pas
-  de journal, et Pet vit sa vie.
+  `debug bubbles` ; son humeur : `debug happy`, `debug meh`, `debug sad` ; `debug climbpage` ; la langue : `lang en`,
+  `lang fr` ; pour filmer : `demo on` (il ne décide plus rien tout seul), `react off` (il ne saute plus vers le
+  pointeur), `walkto <x> [run]`). Sans ces options, pas de journal, et Pet vit sa vie.
+- **Langues** : tous les textes affichés sont dans `Core/Lang.cs`, en anglais et en français. La langue est gardée dans
+  `config.json` (`Language`). Des réglages qui existent déjà sans langue (les tiens, d'avant les langues) passent en
+  français ; un tout premier lancement est en anglais, sauf si l'installateur a écrit la langue choisie. L'installateur
+  est en anglais ou en français selon la langue de Windows (l'anglais pour les autres langues), et n'écrit la langue
+  que s'il n'y a pas encore de réglages : une mise à jour ne touche pas aux tiens. Dans les réglages des bulles, deux
+  pastilles « EN » et « FR » ; dans le menu de l'icône, chaque langue écrite dans sa langue. Restent en français : le
+  journal de développement et les commentaires du code. Les messages de `build.ps1` passent en anglais.
+- **Vidéo de démo** : filmée sur ton écran de droite, devant un faux bureau dessiné par un petit programme (ciel,
+  collines, une fenêtre « Notes » et un terminal), pour ne montrer aucune de tes fenêtres. Pet est piloté par ses
+  commandes de test, et la vraie souris par le programme (d'où la consigne de ne pas toucher la souris). Capture par
+  ffmpeg (Desktop Duplication et l'encodeur de la carte graphique), à 60 images/s ; quatre prises, la quatrième est la
+  bonne. Pendant le tournage, Pet était en anglais et muet, et en mode calme le temps de lui donner la baie (sinon il
+  la croque au bout du pointeur et s'accroche à lui) ; tout est revenu comme avant. Le programme de tournage est resté
+  hors du dépôt. GIF : 960 × 540 à 20 images/s, recadrés autour de Pet ; vidéo : 1920 × 1080 à 60 images/s.
+- **GitHub** : dépôt public `Ixorak/claude-pet`, branche `master`, historique publié tel quel (auteur Ixorak, adresse
+  noreply). Licence MIT, comme ton projet QuickAsk. Le README dit clairement que c'est un projet de fan non officiel,
+  que « Claude » et son logo appartiennent à Anthropic, et que la licence ne couvre que le code. Version 1.0.0 avec
+  `PetSetup.exe`. Le README est en anglais (la langue de tes autres dépôts), avec un lien vers la version française.
 - **Fichiers hors du projet** (créés par moi pour les tests, à supprimer quand tu veux) : le raccourci **PetDev** sur ton
   bureau (il lance la version de développement avec `--house PetDev`) ; une ligne `/Pet/` dans
   `F:\protos\.git\info\exclude` (pour que le dépôt de `F:\protos` ignore ce dossier, purement local). Les lancements faits
@@ -241,3 +265,5 @@ avant de recompiler.
 10. `Humeur, clignements, occupations (café, ordinateur, musique, lecture, bulles), jambes qui balancent, escalade des
     pages`
 11. `Il reste sur le pointeur et y fait ses occupations ; bras encore plus courts ; page qui tourne refaite`
+12. `Langues : anglais par défaut, français au choix ; installateur bilingue`
+13. `Publication sur GitHub : README en anglais et en français, vidéo de démo, licence MIT`

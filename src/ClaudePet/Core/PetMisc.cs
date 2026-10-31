@@ -185,6 +185,23 @@ internal sealed partial class Pet
         StartFall(0, 0);
     }
 
+    /// <summary>
+    /// Outil de tournage (« demo on ») : il ne choisit plus rien de lui-même et reste tranquille entre deux commandes ;
+    /// il réagit toujours au pointeur, aux clics et à la baie.
+    /// </summary>
+    public bool DemoHold;
+
+    /// <summary>Outil de tournage (« react off ») : il ne saute plus vers le pointeur qui passe au-dessus de lui.</summary>
+    public bool DemoNoReact;
+
+    /// <summary>Outil de tournage : marcher (ou courir) jusqu'à x, sur le sol où il est.</summary>
+    public void Debug_WalkTo(double x, bool run)
+    {
+        if (State is not (St.Idle or St.Sit or St.Look or St.Walk) || !Supported()) return;
+        FloorRange(BodyW * 30, out double minX, out double maxX);
+        WalkTo(Math.Clamp(x, minX, maxX), run);
+    }
+
     public string Describe() => string.Create(CultureInfo.InvariantCulture,
-        $"état={State} t={T:F2} X={X:F1} Y={Y:F1} VX={VX:F0} VY={VY:F0} échelle={Scale:F2} écran={Scr} face={Facing} humeur={MoodName}");
+        $"état={State} t={T:F2} X={X:F1} Y={Y:F1} VX={VX:F0} VY={VY:F0} échelle={Scale:F2} écran={Scr} face={Facing} humeur={MoodName} HH={HH:F0} BW={BodyW:F0}");
 }

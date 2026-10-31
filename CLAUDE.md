@@ -1,7 +1,10 @@
 # CLAUDE.md — Claude Pet
 
 Animal de compagnie de bureau pour Windows 11 (cahier des charges : `PROMPT_PET.md`, bilan : `RAPPORT.md`).
-Langue de travail : français (code en anglais, commentaires en français). Git local seulement, auteur `Ixorak`.
+Langue de travail : français (code en anglais, commentaires en français). Git : auteur `Ixorak`, dépôt public
+https://github.com/Ixorak/claude-pet (branche `master`) ; ne pousser que quand Ixorak le demande.
+Pet parle anglais par défaut et français au choix : tous ses textes sont dans `src\ClaudePet\Core\Lang.cs`. Le README
+de GitHub est en anglais (`README.md`) avec sa version française (`README.fr.md`) ; GIF, vidéo et image dans `docs\`.
 
 ## Construire et tester
 
@@ -16,6 +19,8 @@ Langue de travail : français (code en anglais, commentaires en français). Git 
   `stats`, `debug tap|angry|grab|climb|climbwin|jumpwin|hopdown|tunnel`, `findicon`, `dumpui`.
   Tests avec un pointeur imaginaire (la vraie souris ne bouge pas) : `debug swingtest|swinglow|reachtest|pettest|sittest|perchtest`.
   Occupations et humeur : `debug coffee|laptop|music|read|bubbles`, `debug happy|meh|sad`, `debug climbpage`.
+  Langue : `lang en|fr`. Pour filmer : `demo on|off` (il ne décide plus rien tout seul), `react on|off` (il ne saute
+  plus vers le pointeur), `walkto x [run]`.
 - Aperçu des dessins sans lancer Pet : `dotnet run --project tools\AssetGen -c Release -- sheet|props|aim <fichier.png>`.
 - Une seule instance à la fois (mutex + fenêtre « ClaudePet.Controller ») : quitter avant de recompiler.
 

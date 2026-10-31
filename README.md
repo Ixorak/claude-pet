@@ -1,0 +1,113 @@
+# Claude Pet
+
+A tiny pixel-art Claude that lives on your Windows desktop. He walks along the bottom of your screens, climbs your
+windows, hangs on your mouse pointer, drinks coffee, codes on his little laptop and naps when you're away.
+
+🇫🇷 [Lire en français](README.fr.md)
+
+> **Unofficial fan project.** Claude Pet is not made, endorsed or supported by Anthropic.
+
+![Claude Pet jumps on the mouse pointer, swings, sits on it and types on his laptop](docs/pet-cursor.gif)
+
+![Claude Pet's menu, a berry, head pats, a book on top of a window, a throw and a nap](docs/pet-life.gif)
+
+▶ **[Watch the full demo (75 seconds, MP4)](docs/demo.mp4)**
+
+## What he does
+
+- **Lives on your desktop.** He walks, runs, sits, stretches and looks around, along the bottom of every screen. He
+  walks from one monitor to the next where they touch.
+- **Climbs.** He jumps onto your windows, climbs their sides and scales the edges of maximized windows. He rides along
+  when you move a window, and falls off when you close it.
+- **Plays with your pointer.** Move the pointer above him: he raises his arms, jumps, grabs it and swings. Leave it
+  still and he climbs on top and sits there, swinging his legs. Shake the mouse to drop him.
+- **Can be picked up.** Drag him around (he swings), let go to throw him. He bounces off the edges of the screen,
+  sees stars, and gets back up.
+- **Loves head pats.** Hold the right mouse button on him and move back and forth: he closes his eyes, blushes, purrs
+  and sends hearts.
+- **Gets hungry.** After 3 hours of computer time he says "I'm hungry!" and slows down. Give him a berry.
+- **Keeps busy.** He drinks coffee, types on his laptop, listens to music, reads a book and blows soap bubbles. He even
+  does it while sitting on your pointer.
+- **Has moods.** He smiles right after you pet him, looks a bit bored after a while, and gets sad if you ignore him for
+  too long. He blinks.
+- **Sleeps** when you leave your computer for 3 minutes, and wakes up stretching when you come back.
+- **Has a house:** the "Pet" shortcut on your desktop. He comes out of its door when he starts, and walks back in when
+  he goes home.
+- **Gets out of the way.** When a game or a video is fullscreen on his screen, he digs into the ground and pops out on
+  a free screen.
+- **Is light.** A native app, no runtime to install, about 0.2 % of one CPU core when he's quiet. No network, no
+  tracking.
+
+## Install
+
+1. Download **PetSetup.exe** from the [latest release](https://github.com/Ixorak/claude-pet/releases/latest).
+2. Run it. It installs for your Windows user only (no admin rights needed), adds the "Pet" shortcut to your desktop
+   (that's his house) and starts Pet with Windows.
+
+The installer isn't signed, so Windows SmartScreen may warn you: click **More info**, then **Run anyway**.
+
+Requires Windows 11, 64-bit (Windows 10 should work, but hasn't been tested).
+
+**Uninstall:** Settings → Apps → Installed apps → Claude Pet → Uninstall. Everything goes: the app, the shortcuts,
+the startup entry and the settings.
+
+## How to use
+
+<img src="docs/menu.png" alt="Pet's menu: Volume, Size, Language, Hunger, Calm, Feed, Mute, Settings, Sleep, Go home" width="250" align="right">
+
+- **Double-click Pet** to open his menu:
+  - **Feed**: a berry hangs from your pointer. He runs and jumps for it, or click to drop it on the floor.
+  - **Calm**: he moves slowly, sits more and stops jumping around.
+  - **Mute**: no sounds.
+  - **Sleep**: he sleeps until you click him.
+  - **Settings**: volume, size and language.
+  - **Go home**: he walks back into his house and the app closes.
+- **Drag** him with the left mouse button, and let go to throw him.
+- **Hold the right mouse button** on him and move back and forth to pet him.
+- **Click** him to poke him. Poke him five times in a row and he gets angry for a while. A berry or some head pats
+  calm him down.
+- The **tray icon** (next to the clock) has Calm, Mute, Language and Go home.
+
+Pet only catches clicks on his own pixels: everywhere else, your clicks go through.
+
+### Language
+
+Pet speaks English by default, and French too. Switch in **Settings → Language (EN / FR)**, or from the tray icon.
+The installer starts him in the language you install with.
+
+## Build from source
+
+You need:
+
+- the [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- Visual Studio 2022 or its Build Tools, with **Desktop development with C++** (for the native compilation)
+- [Inno Setup 6](https://jrsoftware.org/isinfo.php), for the installer: `winget install JRSoftware.InnoSetup`
+
+Then, in PowerShell:
+
+```powershell
+.\build.ps1
+```
+
+This builds `out\app\ClaudePet.exe` and `dist\PetSetup.exe`. Use `.\build.ps1 -NoSetup` to build the app only,
+or double-click `build.bat`.
+
+How it's made: C# compiled to a native exe (Native AOT), with plain Win32 and transparent "layered" windows, no UI
+framework. Pet, his animations, his house and his sounds are all generated by code: there are no image or sound files.
+Comments in the source code are in French.
+
+| Folder | What's inside |
+|---|---|
+| `src/ClaudePet/Core` | His behavior: brain, physics, mouse, windows, moods, food, activities |
+| `src/ClaudePet/Art` | The pixel art, drawn by code (poses, props, pixel font, house) |
+| `src/ClaudePet/Audio` | The 8-bit sounds, synthesized at startup |
+| `src/ClaudePet/Gfx`, `Native` | Layered windows and Win32 interop |
+| `tools/AssetGen` | Makes the house icon and preview sheets of the poses |
+| `installer` | The Inno Setup script |
+
+## License
+
+The code is released under the [MIT License](LICENSE). This license covers the code in this repository only.
+"Claude" and the Claude logo belong to Anthropic, and this project isn't affiliated with Anthropic.
+
+Designed by [Ixorak](https://github.com/Ixorak), built with [Claude Code](https://claude.com/claude-code).

@@ -3,7 +3,7 @@ rem Recompile Claude Pet et regenere l'installateur dist\PetSetup.exe en une com
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0build.ps1" %*
 if errorlevel 1 (
   echo.
-  echo La construction a echoue.
+  echo The build failed.
   pause
   exit /b 1
 )

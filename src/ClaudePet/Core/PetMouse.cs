@@ -221,7 +221,7 @@ internal sealed partial class Pet
     /// <summary>Réagit au pointeur proche : saute pour l'attraper (normal) ou lève les bras (calme).</summary>
     private bool ReactToCursor(double now)
     {
-        if (!FreeToReact) return false;
+        if (!FreeToReact || DemoNoReact) return false;
         if (app.Cfg.Calm && !Angry) return TryReachUp(now);
         return TryGrabCursor(now);
     }
@@ -290,7 +290,7 @@ internal sealed partial class Pet
 
     private void CheckGrabInAir()
     {
-        if (MouseButtonDown()) return;
+        if (DemoNoReact || MouseButtonDown()) return;
         var c = app.Cursor;
         if (!CanHangFrom(c.X, c.Y)) return;
         HoldOffset(out double ox, out double oy);

@@ -242,6 +242,15 @@ internal sealed unsafe partial class App
         {
             case "calm": SetCalm(a.Length < 2 || a[1] == "on"); break;
             case "lang": if (a.Length > 1) SetLanguage(a[1]); break;
+            case "demo":
+                Pet.DemoHold = a.Length < 2 || a[1] == "on";
+                if (!Pet.DemoHold) Pet.DemoNoReact = false;
+                break;
+            case "react": Pet.DemoNoReact = a.Length > 1 && a[1] == "off"; break;
+            case "walkto":
+                if (a.Length > 1 && double.TryParse(a[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double wx))
+                    Pet.Debug_WalkTo(wx, a.Length > 2 && a[2] == "run");
+                break;
             case "mute": SetMuted(a.Length < 2 || a[1] == "on"); break;
             case "bubbles": OpenBubbles(); break;
             case "stats": Log.Write(TakeStats()); break;

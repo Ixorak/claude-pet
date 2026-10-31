@@ -28,6 +28,7 @@ internal sealed partial class Pet
     /// <summary>Choisit la prochaine activité.</summary>
     private void Decide()
     {
+        if (DemoHold) { Enter(St.Idle, 0.8); return; }
         if (Angry) { AngryDecide(); return; }
         double hunger = app.HungerSpeed;
         if (hunger < 0.12)
