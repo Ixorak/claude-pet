@@ -20,6 +20,7 @@ internal sealed unsafe partial class App
     private double spawnDeadline, nextSpawnTry, quitAt;
     private Mixer? mixer;
     public Bubbles Bubbles = null!;
+    public readonly Mounds Mounds = new();
 
     private partial void InitExtras(string[] args)
     {
@@ -99,6 +100,7 @@ internal sealed unsafe partial class App
         if (quitAt > 0) d = Math.Min(d, Math.Max(0.01, quitAt - Clock.Now));
         if (Cfg.Pending) d = Math.Min(d, 0.5);
         if (FeedingActive) d = Math.Min(d, Math.Min(Berry.DesiredInterval, 1.0 / 30));
+        d = Math.Min(d, Mounds.DesiredInterval);
         return d;
     }
 
@@ -115,6 +117,7 @@ internal sealed unsafe partial class App
         PetWin.SetClickThrough(Pet.ClickThrough);
         Bubbles.Update(now);
         Berry.Update(dt, now);
+        Mounds.Update(now);
         Cfg.Flush();
     }
 
@@ -124,6 +127,7 @@ internal sealed unsafe partial class App
     {
         if (Bubbles.IsOpen) Bubbles.Win.BringToTop();
         if (FeedingActive) Berry.Win.BringToTop();
+        Mounds.BringToTop();
     }
 
     private partial void SaveState()
@@ -181,6 +185,7 @@ internal sealed unsafe partial class App
 
     private partial void ShutdownExtras()
     {
+        Mounds.Shutdown();
         Bubbles.Close();
         mixer?.Dispose();
         User32.DestroyWindow(Bubbles.Win.Hwnd);

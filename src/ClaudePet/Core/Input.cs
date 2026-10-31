@@ -13,12 +13,26 @@ internal sealed unsafe class CursorTracker
     public double X, Y;
     public double LastMoveTime;
 
+    /// <summary>Outil de test : un pointeur imaginaire qui suit un trajet (la vraie souris n'est pas touchée).</summary>
+    public Func<double, (double X, double Y)>? Fake;
+    public double FakeUntil;
+
     public void Update(double now)
     {
-        POINT p;
-        if (User32.GetCursorPos(&p) == 0) return;
-        bool moved = p.X != X || p.Y != Y || count == 0;
-        X = p.X; Y = p.Y;
+        double nx, ny;
+        if (Fake != null && now < FakeUntil)
+        {
+            (nx, ny) = Fake(now);
+        }
+        else
+        {
+            Fake = null;
+            POINT p;
+            if (User32.GetCursorPos(&p) == 0) return;
+            nx = p.X; ny = p.Y;
+        }
+        bool moved = nx != X || ny != Y || count == 0;
+        X = nx; Y = ny;
         if (moved) LastMoveTime = now;
         if (count > 0 && now - buf[head].T < 0.004 && !moved) return;
         head = (head + 1) % buf.Length;

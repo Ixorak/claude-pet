@@ -33,7 +33,8 @@ internal enum St : byte
     WakeUp,      // se réveille (s'étire)
     MouthOpen,   // ouvre grand la bouche devant la baie
     Eat,         // mâche la baie
-    Climb,       // grimpe à un bord de l'écran
+    Climb,       // grimpe à un bord de l'écran ou au côté d'une fenêtre
+    Petted,      // se fait caresser (clic droit et va-et-vient sur lui)
 }
 
 internal enum AirKind : byte { Fall, Thrown, Jump, Hop, Grab, Wild }
@@ -43,7 +44,7 @@ internal enum Contact : byte { None, Floor, Ceiling, Platform }
 internal enum Snd : byte
 {
     Exit, Enter, Step, Jump, Bounce, Tap, Angry, Stars, Grab, Fall, MouthOpen, Eat, Bubble, Snore, Dig, Emerge,
-    Click, Land, Yawn, Happy, Whoosh,
+    Click, Land, Yawn, Happy, Whoosh, Purr,
 }
 
 /// <summary>Pet : position, physique, états. Le cerveau est dans PetBrain.cs, les poses dans PetPoses.cs.</summary>
@@ -126,6 +127,7 @@ internal sealed partial class Pet
             case St.MouthOpen: UpdateMouthOpen(dt, now); break;
             case St.Eat: UpdateEat(dt, now); break;
             case St.Climb: UpdateClimb(dt, now); break;
+            case St.Petted: UpdatePetted(dt, now); break;
             case St.Hidden: break;
             case St.ExitDoor: UpdateExitDoor(dt); break;
             case St.HomeJump: UpdateHomeJump(dt); break;
@@ -179,6 +181,7 @@ internal sealed partial class Pet
         }
 
         ShowStars = State == St.Stunned || (State == St.Tapped && T > 0.12);
+        if (State is not (St.HangCursor or St.ClimbCursor)) RenderAngle = 0; // le dessin n'est tourné qu'au bout du pointeur
         FeedMoodTick(now);
         CheckUserIdle(now);
         UpdateMood(dt, now);
@@ -211,6 +214,7 @@ internal sealed partial class Pet
             case St.MouthOpen:
             case St.Eat:
             case St.Climb:
+            case St.Petted:
                 return 1.0 / 30;
             default: return 1.0 / 60;
         }

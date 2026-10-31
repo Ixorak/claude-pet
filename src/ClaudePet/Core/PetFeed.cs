@@ -163,7 +163,7 @@ internal sealed partial class Pet
         Log.Write($"Baie : croquée (Pet {X:F0},{Y:F0} {State}, baie {app.Berry.X:F0},{app.Berry.Y:F0} {app.Berry.State})");
         app.Berry.Eaten();
         app.FeedPet();
-        CalmDownWithFood();
+        CalmDown("il a mangé");
         app.Play(Snd.Eat, 0.65);
         Crumbs(3);
         if (State == St.Air) { chewAfterLanding = true; return; }

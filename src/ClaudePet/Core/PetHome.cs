@@ -49,6 +49,7 @@ internal sealed partial class Pet
         Facing = Rng.Sign();
         Enter(St.Emerge, 1.0);
         app.Play(Snd.Emerge, 0.7);
+        app.Mounds.Add(X, digFloor, MoundPixel, 9);   // la motte de la sortie du trou
         Log.Write($"Sortie du sol à x={X:F0} sur l'écran {s.Index}");
     }
 
@@ -211,7 +212,12 @@ internal sealed partial class Pet
         LeaveSurface();
         app.Play(Snd.Dig, 0.7);
         Enter(St.Dig, 1.25);
+        // la motte du début du trou (sur un écran en plein écran, elle part avec lui)
+        app.Mounds.Add(X, digFloor, MoundPixel, Scr.Fullscreen ? 1.9 : 9);
     }
+
+    /// <summary>Taille d'un pixel des mottes de terre.</summary>
+    private int MoundPixel => Math.Max(2, (int)Math.Round(Scale * 0.75));
 
     private void UpdateDig(double dt)
     {

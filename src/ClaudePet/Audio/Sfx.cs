@@ -220,6 +220,20 @@ internal static class Sfx
                 b = Synth.Buf(0.28);
                 Synth.Noise(b, 0, 0.26, 0.12, 9000, attack: 0.08, release: 0.15, cutoff: 1800);
                 return b;
+
+            case Snd.Purr:
+            {
+                // ronronnement : de petits grondements graves et doux, environ 22 par seconde
+                b = Synth.Buf(0.8);
+                for (int i = 0; i < 16; i++)
+                {
+                    double t = i * 0.045;
+                    double v = 0.11 * Math.Sin(Math.PI * (i + 0.5) / 16); // monte puis redescend
+                    Synth.Noise(b, t, 0.032, v, 700, attack: 0.006, release: 0.02, cutoff: 320);
+                    Synth.Tone(b, t, 0.03, 92 * p, 84 * p, Wave.Triangle, v * 0.9, attack: 0.005, release: 0.02);
+                }
+                return Synth.Soft(b, 900);
+            }
         }
         return Synth.Buf(0.01);
     }

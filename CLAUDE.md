@@ -13,7 +13,8 @@ Langue de travail : français (code en anglais, commentaires en français). Git 
   la maison de test est le raccourci « PetDev » du bureau).
 - Piloter l'instance qui tourne : `out\app\ClaudePet.exe --cmd "<commande>"` : `state`, `quit`, `goto x y`,
   `throw vx vy`, `sit 30`, `sleep`, `feed`, `feedat x y`, `hunger 3.5`, `eat`, `windows`, `fs <écran> on|off|auto`,
-  `stats`, `debug tap|angry|grab|climb|jumpwin|hopdown|tunnel`, `findicon`, `dumpui`.
+  `stats`, `debug tap|angry|grab|climb|climbwin|jumpwin|hopdown|tunnel`, `findicon`, `dumpui`.
+  Tests avec un pointeur imaginaire (la vraie souris ne bouge pas) : `debug swingtest|swinglow|reachtest|pettest`.
 - Une seule instance à la fois (mutex + fenêtre « ClaudePet.Controller ») : quitter avant de recompiler.
 
 ## Pièges connus

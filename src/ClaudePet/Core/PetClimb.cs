@@ -1,4 +1,5 @@
 using ClaudePet.Art;
+using ClaudePet.Native;
 using ClaudePet.Util;
 
 namespace ClaudePet.Core;
@@ -12,6 +13,14 @@ internal sealed partial class Pet
     private bool wantClimb;
     private bool climbForWindow;          // il monte à la hauteur d'une fenêtre pour sauter dessus
     private Platform climbWindow;
+
+    // Escalade du côté d'une fenêtre (pour se mettre dessus)
+    private nint climbHwnd;               // fenêtre dont il escalade le côté (0 : un bord de l'écran)
+    private RECT climbRect;
+    private nint climbWinTarget;
+    private int climbWinSide;             // sens où il regarde : +1 = côté gauche de la fenêtre, -1 = côté droit
+    private bool climbWinWalk, climbWinJump;
+    private double climbWinGrabY;
 
     // Tunnel sous un écran en plein écran
     private bool tunnelWalk;
@@ -50,6 +59,7 @@ internal sealed partial class Pet
     private void UpdateClimb(double dt, double now)
     {
         Facing = climbSide;
+        if (climbHwnd != 0) { UpdateWindowClimb(dt); return; }
         if (FreeAt(X + climbSide * 3, Y))
         {
             // le mur s'arrête (le haut d'une marche entre deux écrans) : il se hisse dessus
@@ -126,6 +136,147 @@ internal sealed partial class Pet
                 break;
             }
         }
+    }
+
+    // ------------------------------------------------------------------ escalader le côté d'une fenêtre
+
+    /// <summary>Choisit une fenêtre proche dont il peut escalader le côté pour se mettre dessus, et y va.</summary>
+    private bool TryClimbWindow()
+    {
+        if (app.Cfg.Calm || app.Hungry || app.FeedingActive || homeBound || State == St.Hidden) return false;
+        app.ScanWindowsNow();
+        FloorRange(BodyW * 12, out double minX, out double maxX);
+        double total = 0, pickX = 0;
+        nint pick = 0;
+        int pickSide = 0;
+        foreach (var win in Wins.Windows)
+        {
+            if (win.Maximized || win.Hwnd == supportHwnd) continue;
+            var r = win.R;
+            if (Y - r.Top < HH * 1.3) continue;          // pas assez haut pour valoir une escalade
+            if (r.Bottom < Y - HH * 4.2) continue;       // le bas de son côté est hors d'atteinte
+            for (int side = -1; side <= 1; side += 2)
+            {
+                double edge = side > 0 ? r.Left : r.Right;
+                double standX = edge - side * (HW + 1);
+                if (standX < minX || standX > maxX) continue;           // il ne peut pas y aller à pied
+                if (!FreeAt(standX, r.Top + HH * 0.2)) continue;        // pas la place de monter jusqu'en haut
+                if (!CornerVisible(win.Hwnd, r, side)) continue;        // le coin du dessus est caché
+                double wgt = 1 / (1 + Math.Abs(standX - X) / BodyW);
+                total += wgt;
+                if (Rng.F() * total < wgt) { pick = win.Hwnd; pickSide = side; pickX = standX; }
+            }
+        }
+        if (pick == 0) return false;
+        climbWinTarget = pick;
+        climbWinSide = pickSide;
+        climbWinWalk = true;
+        Log.Write($"Escalade d'une fenêtre : il va au côté {(pickSide > 0 ? "gauche" : "droit")} (x={pickX:F0})");
+        if (Math.Abs(pickX - X) < 2) { ClimbWindowArrived(); return true; }
+        WalkTo(pickX, run: Math.Abs(pickX - X) > BodyW * 5);
+        return true;
+    }
+
+    /// <summary>Le coin du dessus de la fenêtre, de ce côté, est visible et assez large pour s'y poser.</summary>
+    private bool CornerVisible(nint hwnd, RECT r, int side)
+    {
+        foreach (var p in Wins.Platforms)
+        {
+            if (p.Hwnd != hwnd || Math.Abs(p.Y - r.Top) > 1 || p.X1 - p.X0 < HW * 1.8) continue;
+            if (side > 0 ? p.X0 <= r.Left + HW * 0.5 : p.X1 >= r.Right - HW * 0.5) return true;
+        }
+        return false;
+    }
+
+    /// <summary>Arrivé au pied du côté de la fenêtre : il s'y accroche (en sautant si le bas est trop haut).</summary>
+    private bool ClimbWindowArrived()
+    {
+        if (!climbWinWalk) return false;
+        climbWinWalk = false;
+        if (!WindowScanner.Frame(climbWinTarget, out RECT r)) return false;
+        int side = climbWinSide;
+        double sideX = (side > 0 ? r.Left : r.Right) - side * HW;
+        if (Math.Abs(sideX - X) > BodyW * 0.7 || !FreeAt(sideX, Y)) return false; // la fenêtre a bougé
+        X = sideX;
+        Facing = side;
+        if (r.Bottom >= Y - HH * 0.9)
+        {
+            BeginWindowClimb(climbWinTarget, r, side);
+            return true;
+        }
+        // le bas de la fenêtre est plus haut que sa tête : il saute s'accrocher à son côté
+        climbWinGrabY = r.Bottom + HH * 0.3;
+        double rise = Y - climbWinGrabY;
+        if (rise > HH * 4.2) return false;
+        climbWinJump = true;
+        PrepareJump(0, -Math.Sqrt(2 * G * rise), AirKind.Jump, 0.12);
+        return true;
+    }
+
+    private void BeginWindowClimb(nint hwnd, RECT r, int side)
+    {
+        LeaveSurface();
+        climbHwnd = hwnd;
+        climbRect = r;
+        climbSide = side;
+        climbMode = 0;
+        climbDist = 0;
+        climbForWindow = false;
+        VX = 0; VY = 0;
+        app.Play(Snd.Grab, 0.35);
+        Enter(St.Climb);
+    }
+
+    /// <summary>En l'air après le saut vers le côté d'une fenêtre : il s'y accroche au sommet du saut.</summary>
+    private void ClimbSideAirTick()
+    {
+        if (!climbWinJump) return;
+        if (VY < 0 && Y > climbWinGrabY) return; // il monte encore
+        climbWinJump = false;
+        if (!WindowScanner.Frame(climbWinTarget, out RECT r)) return;
+        int side = climbWinSide;
+        double sideX = (side > 0 ? r.Left : r.Right) - side * HW;
+        if (Math.Abs(sideX - X) > BodyW * 0.5 || Y < r.Top + HH * 0.2 || Y - HH * 0.8 > r.Bottom) return; // raté : il retombe
+        X = sideX;
+        BeginWindowClimb(climbWinTarget, r, side);
+    }
+
+    /// <summary>Il monte le long du côté de la fenêtre (et bouge avec elle), puis se hisse dessus.</summary>
+    private void UpdateWindowClimb(double dt)
+    {
+        if (!WindowScanner.Frame(climbHwnd, out RECT r))
+        {
+            Log.Write("La fenêtre escaladée a été fermée, réduite ou agrandie : il tombe");
+            app.Play(Snd.Fall, 0.4);
+            StartFall(0, 0);
+            return;
+        }
+        Y += r.Top - climbRect.Top;   // la fenêtre bouge : il bouge avec
+        climbRect = r;
+        X = (climbSide > 0 ? r.Left : r.Right) - climbSide * HW;
+        if (!FreeAt(X, Y)) { Resolve(); StartFall(0, 0); return; }
+        double ny = Y - BodyW * 0.6 * dt;
+        if (ny <= r.Top + HH * 0.2) { HoistOntoWindow(r); return; }
+        if (!FreeAt(X, ny)) { StartFall(-climbSide * BodyW * 0.3, 0); return; } // plafond
+        double prev = climbDist;
+        climbDist += Y - ny;
+        Y = ny;
+        double stepLen = BodyW * 0.36;
+        if ((int)(climbDist / stepLen) != (int)(prev / stepLen)) app.Play(Snd.Step, 0.2);
+    }
+
+    /// <summary>En haut du côté : il se hisse sur le dessus de la fenêtre, d'un petit bond.</summary>
+    private void HoistOntoWindow(RECT r)
+    {
+        double landX = (climbSide > 0 ? r.Left : r.Right) + climbSide * HW * 0.9;
+        double rise = HH * 0.55;
+        double vy0 = -Math.Sqrt(2 * G * rise);
+        double t1 = -vy0 / G;
+        double t2 = Math.Sqrt(2 * Math.Max(1, r.Top - (Y - rise)) / G);
+        double vx = (landX - X) / (t1 + t2);
+        app.Play(Snd.Jump, 0.6);
+        Log.Write("Escalade d'une fenêtre : il se hisse dessus");
+        StartFall(vx, vy0, AirKind.Jump);
     }
 
     /// <summary>Part vers le mur le plus proche pour l'escalader.</summary>

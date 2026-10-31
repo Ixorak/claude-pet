@@ -68,12 +68,17 @@ internal sealed partial class Pet
     private partial bool PlatformSupportsAt(double x)
         => CurrentSegment(out double x0, out double x1) && x >= x0 + 1 && x <= x1 - 1;
 
-    private partial void LeaveSurface() { supportHwnd = 0; }
+    private partial void LeaveSurface()
+    {
+        supportHwnd = 0;
+        climbHwnd = 0;
+    }
 
     private partial void AttachPlatformFromLanding()
     {
         supportHwnd = pendingPlatform.Hwnd;
         windowJump = false;
+        climbWinJump = false;
         if (!WindowScanner.Frame(supportHwnd, out supportRect)) { supportHwnd = 0; return; }
         if (Math.Abs(supportRect.Top - Y) > 1 && FreeAt(X, supportRect.Top)) Y = supportRect.Top;
     }
@@ -82,6 +87,7 @@ internal sealed partial class Pet
     {
         supportHwnd = 0;
         windowJump = false;
+        climbWinJump = false;
     }
 
     private partial void OnLanded() { }
@@ -121,6 +127,8 @@ internal sealed partial class Pet
 
     private partial void AirTick(double dt)
     {
+        ClimbSideAirTick();
+        if (State != St.Air) return; // il vient de s'accrocher au côté d'une fenêtre
         if (windowJump && VY > 0 && Y > windowJumpY + HH * 0.5)
         {
             // raté : il passe sous le bord visé et tombe pour de bon (et sera sonné si c'est haut)
@@ -186,6 +194,8 @@ internal sealed partial class Pet
     {
         tunnelWalk = false;
         wantClimb = false;
+        climbWinWalk = false;
+        climbWinJump = false;
         if (State == St.Climb) StartFall(0, 0);
     }
 

@@ -71,6 +71,21 @@ manger, bulles, ronflement, creuser, sortir du sol. Muet et volume sont mémoris
 **Sauvegarde.** `%AppData%\Pet\config.json` : calme, muet, volume, taille, jauge de faim (et les repères de temps qui
 servent à la compter).
 
+**Ajouts demandés par Ixorak après la livraison :**
+- **Balancement au bout du pointeur** : pendu à ton pointeur, il se balance comme un pendule quand tu bouges la souris
+  (le dessin tourne autour de sa main), puis l'élan s'amortit en quelques secondes. Tant qu'on le balance, il reste
+  pendu ; quand on le secoue, il part avec l'élan de son balancement.
+- **Près du bas de l'écran** : son corps ne sort plus par le bas, il est poussé sur le côté et s'accroche de travers.
+  Si le pointeur est vraiment trop bas, il lâche et retombe debout ; il ne saute plus attraper un pointeur trop bas.
+- **Bras vers le pointeur**, en mode normal aussi : quand le pointeur passe au-dessus de lui, il lève les bras, qui
+  pointent vers le curseur (dessinés devant le corps, avec leur contour), puis saute souvent l'attraper.
+- **Escalade du côté des fenêtres** : il va au bord d'une fenêtre proche, s'accroche à son côté (en sautant si le bas
+  est trop haut), grimpe en suivant la fenêtre si elle bouge, puis se hisse sur le dessus.
+- **Caresses** : clic droit maintenu sur lui et va-et-vient : il s'assoit, ferme les yeux de bonheur, rougit,
+  ronronne et fait des cœurs. Quelques caresses calment aussi un Pet énervé.
+- **Mottes de terre** : quand il creuse, une motte de terre au début du trou et une à la sortie ; elles disparaissent
+  au bout d'environ 9 s.
+
 **Performances** (mesurées sur le PC d'Ixorak, 20 cœurs logiques) : assis, 0,16 % d'un cœur ; endormi, 0,47 % ; caché ou
 Ixorak absent, presque rien ; en mouvement, moins de 1 % d'un cœur ; environ 30 Mo de mémoire. La boucle ne tourne jamais
 à fond : elle se règle selon ce que fait Pet (60 images/s en mouvement, 4 à 20 quand il est calme, une par seconde
@@ -128,6 +143,15 @@ quand il est caché), et la sortie audio se ferme après 3 s de silence.
   temps ; un raté qui finit de haut le laisse sonné. **Escalade** : sur les bords extérieurs et les zones mortes, jusqu'à la
   hauteur d'une fenêtre proche (3 fois sur 4) ou au hasard, puis il saute, lâche prise ou redescend.
 - **Sommeil** : il s'endort après 3 min sans activité d'Ixorak (clavier et souris) ; siestes de 25 à 70 s.
+- **Balancement** : un pendule (le centre du corps au bout d'un fil rigide accroché à la main), amortissement léger,
+  au plus 77° de chaque côté (jamais au-dessus de la main). Il grimpe s'asseoir sur le pointeur une fois calmé, ou
+  8 s au plus après la fin de son temps pendu si on le balance encore.
+- **Pointeur au-dessus de lui (mode normal)** : 45 % du temps il saute tout de suite l'attraper ; sinon il lève les
+  bras vers lui et saute 1 à 2,6 s plus tard si le pointeur reste là. Énervé, il saute toujours.
+- **Caresses** : un aller ou un retour sur son corps compte comme une caresse ; un cœur toutes les 0,4 à 0,75 s, un
+  ronronnement par seconde au plus ; 8 caresses calment un Pet énervé. Un simple clic droit sans bouger ne fait rien
+  (et n'ouvre aucun menu).
+- **Mottes de terre** : 9 s en tout, effacement compris (sur un écran en plein écran, celle du départ part avec lui).
 - **Sons** : synthèse 8-bit (ondes triangle, carrée, sinus et dent de scie avec enveloppes douces, petits glissandos,
   bruit filtré), mixés sur un fil audio à part (waveOut).
 - **Installateur** : Inno Setup 6, installation dans `%LocalAppData%\Programs\Claude Pet` sans droits administrateur,
@@ -136,7 +160,9 @@ quand il est caché), et la sortie audio se ferme après 3 s de silence.
   `%AppData%\Pet`. L'installateur et le désinstalleur ferment Pet proprement s'il tourne.
 - **Outils de développement** gardés dans l'exe : `--log` (journal dans `%AppData%\Pet\journal.txt`), `--house <nom>`
   (une autre icône comme maison), `--cmd "<commande>"` (envoie une commande à Pet qui tourne : `state`, `feed`,
-  `hunger 3.5`, `windows`, `fs 1 on`, `stats`, `debug climb`…). Sans ces options, pas de journal, et Pet vit sa vie.
+  `hunger 3.5`, `windows`, `fs 1 on`, `stats`, `debug climb`, `debug climbwin`, et des tests avec un pointeur
+  imaginaire qui ne touchent pas à la vraie souris : `debug swingtest`, `debug swinglow`, `debug reachtest`,
+  `debug pettest`). Sans ces options, pas de journal, et Pet vit sa vie.
 - **Fichiers hors du projet** (créés par moi pour les tests, à supprimer quand tu veux) : le raccourci **PetDev** sur ton
   bureau (il lance la version de développement avec `--house PetDev`) ; une ligne `/Pet/` dans
   `F:\protos\.git\info\exclude` (pour que le dépôt de `F:\protos` ignore ce dossier, purement local). Les lancements faits
@@ -168,3 +194,5 @@ avant de recompiler.
 5. `Étape 5 : fenêtres, murs et plein écran`
 6. `Étape 6 : sommeil, siestes, regarder la souris, sons`
 7. `Étape 7 : installateur, build et rapport`
+8. `Balancement, bras vers le pointeur, escalade des fenêtres, caresses, mottes de terre` (demandes d'Ixorak après
+   la livraison)

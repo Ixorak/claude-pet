@@ -248,6 +248,12 @@ internal sealed unsafe partial class App
         int top = (int)Math.Round(Pet.Y + (by0 - canvas.OY) * s);
         int dw = Math.Max(1, (int)Math.Ceiling(bw * s));
         int dh = Math.Max(1, (int)Math.Ceiling(bh * s));
+        if (Math.Abs(Pet.RenderAngle) > 0.004)
+        {
+            RenderRotated(left, top, dw, dh, s, Pet.RenderAngle);
+            return;
+        }
+        if (rotatedShown) { rotatedShown = false; contentDirty = true; }
         int drawH = dh;
         if (!double.IsNaN(clipY)) drawH = Math.Min(dh, (int)Math.Floor(clipY) - top);
         if (drawH <= 0) { PetWin.Hide(); lastDrawnH = -1; return; }
@@ -260,6 +266,44 @@ internal sealed unsafe partial class App
             lastDrawnH = drawH;
         }
         else PetWin.Move(left, top);
+    }
+
+    private bool rotatedShown;
+    private double rotatedAngle;
+
+    /// <summary>
+    /// Pet tourné autour du pivot (le bout du pointeur quand il s'y balance). (left, top, dw, dh) : le rectangle du dessin
+    /// droit ; la fenêtre prend la taille du rectangle tourné.
+    /// </summary>
+    private void RenderRotated(int left, int top, int dw, int dh, double s, double angle)
+    {
+        double pivX = Pet.PivotX - left, pivY = Pet.PivotY - top;
+        double c = Math.Cos(angle), sn = Math.Sin(angle);
+        double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
+        for (int k = 0; k < 4; k++)
+        {
+            double rx = ((k & 1) == 0 ? 0 : dw) - pivX, ry = ((k & 2) == 0 ? 0 : dh) - pivY;
+            double fx = c * rx + sn * ry + pivX, fy = -sn * rx + c * ry + pivY;
+            if (fx < minX) minX = fx;
+            if (fx > maxX) maxX = fx;
+            if (fy < minY) minY = fy;
+            if (fy > maxY) maxY = fy;
+        }
+        int offX = (int)Math.Floor(minX), offY = (int)Math.Floor(minY);
+        int rw = (int)Math.Ceiling(maxX) - offX + 1, rh = (int)Math.Ceiling(maxY) - offY + 1;
+        bool redraw = contentDirty || !rotatedShown || !PetWin.Shown || Math.Abs(angle - rotatedAngle) > 0.003
+                      || rw != PetWin.W || rh != PetWin.H;
+        if (redraw)
+        {
+            uint* bits = PetWin.Begin(rw, rh);
+            Blit.ArtRotated(canvas, bx0, by0, bw, bh, s, c, sn, pivX, pivY, offX, offY, bits, PetWin.Stride, rw, rh);
+            PetWin.Commit(left + offX, top + offY, rw, rh);
+            contentDirty = false;
+            rotatedShown = true;
+            rotatedAngle = angle;
+            lastDrawnH = -1;
+        }
+        else PetWin.Move(left + offX, top + offY);
     }
 
     public void Play(Snd s, double volume = 1.0) => PlaySound(s, volume);
@@ -330,6 +374,12 @@ internal sealed unsafe partial class App
                     Cursor.Update(now);
                     Pet.OnMouseMove(Cursor.X, Cursor.Y);
                 }
+                else if (Pet.IsPetting)
+                {
+                    Cursor.Update(now);
+                    Pet.OnPettingMove(Cursor.X, Cursor.Y, now);
+                    Wake();
+                }
                 return true;
             case C.WM_LBUTTONUP:
                 Cursor.Update(now);
@@ -339,10 +389,24 @@ internal sealed unsafe partial class App
                 if (wasPressing) Wake();
                 return true;
             case C.WM_CAPTURECHANGED:
-                if (lp != hwnd) Pet.OnCaptureLost(now);
+                if (lp != hwnd) { Pet.OnCaptureLost(now); Pet.StopPetting(now); }
                 return true;
             case C.WM_RBUTTONDOWN:
+                // clic droit maintenu : des caresses (aucun menu ne s'ouvre)
+                Cursor.Update(now);
+                if (Bubbles.IsOpen) Bubbles.Close();
+                if (!Pet.IsPressing && Pet.StartPetting(now)) User32.SetCapture(hwnd);
+                Wake();
+                return true;
             case C.WM_RBUTTONUP:
+                if (Pet.IsPetting)
+                {
+                    Pet.StopPetting(now);
+                    if (User32.GetCapture() == hwnd) User32.ReleaseCapture();
+                    Wake();
+                }
+                return true;
+            case C.WM_CONTEXTMENU:
                 return true;
         }
         return false;

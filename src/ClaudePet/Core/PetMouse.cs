@@ -25,7 +25,19 @@ internal sealed partial class Pet
     private bool cursorWasInZone;
     private bool hangCalm;
     private double hangGrabX, hangGrabY, hangUntil, sitUntil, attachedAt;
-    private double swing, swingV;
+
+    // Balancement au bout du pointeur : un pendule. Le centre du corps (« bob ») est une masse au bout d'un fil
+    // rigide accroché à la main qui tient le pointeur ; le dessin tourne autour de la main.
+    /// <summary>Angle du dessin (corps vers la droite = positif, en radians) ; 0 = droit.</summary>
+    public double RenderAngle;
+    /// <summary>Pivot de la rotation du dessin (le bout du pointeur), en pixels écran.</summary>
+    public double PivotX, PivotY;
+    private double bobX, bobY, bobVX, bobVY, pivPX, pivPY;
+    private double bobL, bobRest, climbStartAngle, swingTestEnd;
+    private const double MaxSwing = 1.35; // environ 77° : jamais au-dessus de la main
+
+    /// <summary>Vitesse de balancement (radians par seconde).</summary>
+    private double SwingSpeed => MathX.Hypot(bobVX, bobVY) / Math.Max(1, bobL);
 
     // Sommeil
     private bool manualSleep;   // bulle « Dormir » : jusqu'à ce qu'Ixorak clique
@@ -158,15 +170,15 @@ internal sealed partial class Pet
         }
     }
 
-    /// <summary>Une baie calme Pet tout de suite quand il est énervé : le rouge s'efface pendant qu'il mâche.</summary>
-    private void CalmDownWithFood()
+    /// <summary>Une baie ou des caresses calment Pet tout de suite quand il est énervé : le rouge s'efface vite.</summary>
+    private void CalmDown(string why)
     {
         if (!Angry) return;
         double now = Clock.Now;
         angryUntil = now + 0.5;
         angryStart = Math.Min(angryStart, now - 0.3);
         taps.Clear();
-        Log.Write("Pet se calme : il a mangé");
+        Log.Write("Pet se calme : " + why);
     }
 
     private void AngryDecide()
@@ -209,19 +221,35 @@ internal sealed partial class Pet
         return TryGrabCursor(now);
     }
 
-    private bool TryGrabCursor(double now)
+    /// <summary>Le pointeur est au-dessus de Pet, à portée de saut.</summary>
+    private bool CursorInGrabZone(out double dx)
     {
         var c = app.Cursor;
-        double above = Y - c.Y, dx = c.X - X;
+        double above = Y - c.Y;
+        dx = c.X - X;
         double maxUp = Angry ? 4.5 : 3.5;
-        bool inZone = above > HH * 0.8 && above < HH * maxUp && Math.Abs(dx) < BodyW * (Angry ? 4.5 : 2.6)
-                      && Desk.At(c.X, c.Y) is Screen s && !s.Fullscreen;
-        if (!inZone) { cursorWasInZone = false; return false; }
+        return above > HH * 0.8 && above < HH * maxUp && Math.Abs(dx) < BodyW * (Angry ? 4.5 : 2.6)
+               && Desk.At(c.X, c.Y) is Screen s && !s.Fullscreen;
+    }
+
+    private bool TryGrabCursor(double now)
+    {
+        if (!CursorInGrabZone(out _)) { cursorWasInZone = false; return false; }
         if (cursorWasInZone || now < grabCooldown || MouseButtonDown()) return false;
         cursorWasInZone = true;
-        if (!Angry && !Rng.Chance(0.6)) { grabCooldown = now + 3; return false; }
-        GrabJump(now);
+        if ((Angry || Rng.Chance(0.45)) && CanHangFrom(app.Cursor.X, app.Cursor.Y)) { GrabJump(now); return true; }
+        // sinon il lève d'abord les bras vers le pointeur, et saute l'attraper s'il reste là
+        StartReachUp(now);
         return true;
+    }
+
+    private double reachJumpAt;
+
+    private void StartReachUp(double now)
+    {
+        reachJumpAt = now + Rng.Range(1.0, 2.6);
+        Enter(St.ReachUp);
+        app.Play(Snd.Happy, 0.25);
     }
 
     /// <summary>Écart entre les pieds et le haut de la main qui tient le pointeur.</summary>
@@ -256,6 +284,7 @@ internal sealed partial class Pet
     {
         if (MouseButtonDown()) return;
         var c = app.Cursor;
+        if (!CanHangFrom(c.X, c.Y)) return;
         HoldOffset(out double ox, out double oy);
         double hx = X + ox, hy = Y + oy;
         if (MathX.Hypot(c.X - hx, c.Y - hy) < BodyW * 0.6) Grab(false);
@@ -271,10 +300,131 @@ internal sealed partial class Pet
         hangGrabY = app.Cursor.Y;
         attachedAt = now;
         hangUntil = now + (Angry ? Rng.Range(1.5, 3.0) : Rng.Range(2.5, 5.0));
-        swing = 0; swingV = 0;
+        double jumpVX = VX;
         VX = 0; VY = 0;
         Enter(St.HangCursor);
         FollowHang();
+        InitSwing(jumpVX);
+    }
+
+    /// <summary>Longueur du fil (de la main au centre du corps) et angle du centre dans le dessin droit.</summary>
+    private void HangGeometry(out double len, out double rest)
+    {
+        HoldOffset(out double ox, out double oy);
+        double cx = -ox, cy = -HH * 0.45 - oy;      // de la main au centre du corps, dans le dessin droit
+        len = Math.Max(1, MathX.Hypot(cx, cy));
+        rest = Math.Atan2(cx, cy);                  // le dessin a la main un peu sur le côté
+    }
+
+    /// <summary>De combien le dessin tourné descend sous le centre du corps, pour un angle de fil donné.</summary>
+    private double LowestBelowBob(double phi, double rest)
+    {
+        double th = phi - rest, c = Math.Cos(th);
+        return HW * Math.Abs(Math.Sin(th)) + Math.Max(0.45 * HH * c, -0.55 * HH * c);
+    }
+
+    /// <summary>Le bas de l'écran (ou le haut de la barre des tâches) sous un point.</summary>
+    private double FloorBelow(double x, double y) => (Desk.At(x, y) ?? Desk.Nearest(x, y)).Work.Bottom;
+
+    /// <summary>Angle de fil le plus proche de <paramref name="from"/> où le corps reste au-dessus du sol (NaN si aucun).</summary>
+    private double FitAboveFloor(double px, double py, double from, double len, double rest)
+    {
+        double floor = FloorBelow(px, py) - 2 * RenderScale; // un peu de marge sous ses pieds
+        bool Fits(double a) => py + Math.Cos(a) * len + LowestBelowBob(a, rest) <= floor;
+        if (Fits(from)) return from;
+        int first = Math.Abs(from) > 0.05 ? Math.Sign(from) : (rest >= 0 ? 1 : -1);
+        foreach (int side in new[] { first, -first })
+            for (double m = side == first ? Math.Abs(from) : 0; m <= MaxSwing + 1e-9; m += 0.02)
+                if (Fits(side * m)) return side * m;
+        return double.NaN;
+    }
+
+    /// <summary>Peut-il se pendre à ce point sans que son corps sorte de l'écran par le bas (au besoin de travers) ?</summary>
+    private bool CanHangFrom(double x, double y)
+    {
+        HangGeometry(out double len, out double rest);
+        return !double.IsNaN(FitAboveFloor(x, y, 0, len, rest));
+    }
+
+    /// <summary>Le pendule au moment où il attrape le pointeur : il garde un peu l'élan de son saut.</summary>
+    private void InitSwing(double jumpVX)
+    {
+        HangGeometry(out bobL, out bobRest);
+        var c = app.Cursor;
+        double a = MathX.Clamp(jumpVX / (3000 * K), -0.5, 0.5);
+        bobX = c.X + Math.Sin(a) * bobL;
+        bobY = c.Y + Math.Cos(a) * bobL;
+        bobVX = jumpVX * 0.6;
+        bobVY = 0;
+        pivPX = c.X; pivPY = c.Y;
+        UpdateSwingAngle();
+    }
+
+    /// <summary>
+    /// Fait avancer le pendule : gravité, léger amortissement, fil rigide jusqu'à la main (qui suit le pointeur).
+    /// Quand la souris accélère, le corps prend du retard et se balance. Le bas de l'écran repousse le corps sur le
+    /// côté (il s'accroche de travers). Renvoie faux si le pointeur est trop bas pour qu'il tienne, même de travers.
+    /// </summary>
+    private bool StepSwing(double dt)
+    {
+        var c = app.Cursor;
+        double px1 = c.X, py1 = c.Y;
+        int n = Math.Clamp((int)Math.Ceiling(dt * 240), 1, 16);
+        double h = dt / n;
+        double damp = Math.Exp(-0.9 * h);
+        for (int i = 1; i <= n; i++)
+        {
+            double t = (double)i / n;
+            double px = pivPX + (px1 - pivPX) * t, py = pivPY + (py1 - pivPY) * t;
+            double ox = bobX, oy = bobY;
+            bobVX *= damp;
+            bobVY = bobVY * damp + G * h;
+            bobX += bobVX * h;
+            bobY += bobVY * h;
+            double dx = bobX - px, dy = bobY - py, d = Math.Max(1e-3, MathX.Hypot(dx, dy));
+            bobX = px + dx / d * bobL;
+            bobY = py + dy / d * bobL;
+            double a = Math.Atan2(bobX - px, bobY - py);
+            if (Math.Abs(a) > MaxSwing)
+            {
+                a = Math.Sign(a) * MaxSwing;
+                bobX = px + Math.Sin(a) * bobL;
+                bobY = py + Math.Cos(a) * bobL;
+            }
+            // le bas de l'écran : son corps ne passe pas dessous, il est poussé sur le côté
+            double fit = FitAboveFloor(px, py, a, bobL, bobRest);
+            if (double.IsNaN(fit)) { pivPX = px; pivPY = py; return false; }
+            bool pushed = fit != a;
+            if (pushed)
+            {
+                bobX = px + Math.Sin(fit) * bobL;
+                bobY = py + Math.Cos(fit) * bobL;
+            }
+            bobVX = (bobX - ox) / h;
+            bobVY = (bobY - oy) / h;
+            if (pushed) { bobVX *= 0.6; bobVY *= 0.6; }
+        }
+        pivPX = px1; pivPY = py1;
+        UpdateSwingAngle();
+        return true;
+    }
+
+    private void UpdateSwingAngle()
+    {
+        PivotX = pivPX;
+        PivotY = pivPY;
+        RenderAngle = Math.Atan2(bobX - pivPX, bobY - pivPY) - bobRest;
+    }
+
+    /// <summary>Les pieds là où le dessin tourné les montre (au moment de lâcher le pointeur).</summary>
+    private void ApplyRotationToFeet()
+    {
+        if (RenderAngle == 0) return;
+        double c = Math.Cos(RenderAngle), s = Math.Sin(RenderAngle);
+        double dx = X - PivotX, dy = Y - PivotY;
+        X = PivotX + c * dx + s * dy;
+        Y = PivotY - s * dx + c * dy;
+        RenderAngle = 0;
     }
 
     private void FollowHang()
@@ -290,12 +440,17 @@ internal sealed partial class Pet
 
     private void DropFromCursor(bool fling, double now)
     {
-        var (vx, vy) = app.Cursor.Velocity(now);
+        // il part avec l'élan de son balancement (qui contient déjà le mouvement de la souris)
+        double vx, vy;
+        if (State is St.HangCursor or St.ClimbCursor) { vx = bobVX; vy = bobVY; }
+        else (vx, vy) = app.Cursor.Velocity(now);
         double max = 5000 * K, sp = MathX.Hypot(vx, vy);
         if (sp > max) { vx *= max / sp; vy *= max / sp; }
+        ApplyRotationToFeet();
         Resolve();
         if (fling) app.Play(Snd.Fall, 0.45);
-        StartFall(fling ? vx * 0.8 : 0, fling ? vy * 0.8 : 0, fling ? AirKind.Thrown : AirKind.Fall);
+        double k = fling ? 0.9 : 0.5;
+        StartFall(vx * k, vy * k, fling ? AirKind.Thrown : AirKind.Fall);
     }
 
     private void UpdateHang(double dt, double now)
@@ -307,15 +462,21 @@ internal sealed partial class Pet
             if (MathX.Hypot(c.X - hangGrabX, c.Y - hangGrabY) > 6 * K) { DropFromCursor(false, now); return; }
         }
         else if (Shaken(now)) { DropFromCursor(true, now); return; }
+        if (swingTestEnd > 0 && now >= swingTestEnd) { swingTestEnd = 0; DropFromCursor(true, now); return; }
 
-        var (vx, _) = c.Velocity(now, 0.08);
-        double target = MathX.Clamp(-vx / (1100 * K), -1, 1);
-        swingV += ((target - swing) * 70 - swingV * 9) * dt;
-        swing = MathX.Clamp(swing + swingV * dt, -1.3, 1.3);
         FollowHang();
-        if (!hangCalm && now > hangUntil)
+        if (!StepSwing(dt))
+        {
+            // le pointeur est trop bas pour qu'il tienne, même de travers : il lâche et retombe debout
+            UpdateSwingAngle();
+            DropFromCursor(false, now);
+            return;
+        }
+        // il grimpe s'asseoir sur le pointeur une fois calmé ; tant qu'on le balance, il reste pendu (8 s de plus au plus)
+        if (!hangCalm && now > hangUntil && (SwingSpeed < 1.2 || now > hangUntil + 8))
         {
             if (Angry) { DropFromCursor(true, now); return; }
+            climbStartAngle = RenderAngle;
             Enter(St.ClimbCursor, 0.9);
             app.Play(Snd.Jump, 0.4);
         }
@@ -332,6 +493,10 @@ internal sealed partial class Pet
         double sitX = c.X, sitY = c.Y + SitOnCursorOffset;
         X = MathX.Lerp(hangX, sitX, u);
         Y = MathX.Lerp(hangY, sitY, u);
+        // en grimpant, il se redresse
+        RenderAngle = climbStartAngle * (1 - u);
+        PivotX = c.X; PivotY = c.Y;
+        pivPX = c.X; pivPY = c.Y;
         if (T >= Dur)
         {
             sitUntil = now + Rng.Range(40, 120);
@@ -376,25 +541,53 @@ internal sealed partial class Pet
     {
         if (!CursorAboveNear(out _)) return false;
         if (MouseButtonDown()) return false;
-        Enter(St.ReachUp);
-        app.Play(Snd.Happy, 0.25);
+        StartReachUp(now);
         return true;
     }
 
+    /// <summary>
+    /// Bras levés vers le pointeur (en mode calme comme en mode normal). Pointeur immobile contre ses mains :
+    /// il s'y accroche. En mode normal, il finit par sauter l'attraper.
+    /// </summary>
     private void UpdateReachUp(double dt, double now)
     {
         if (!CheckSupport()) return;
-        if (!app.Cfg.Calm || Angry || !CursorAboveNear(out double dx) || homeBound || app.FeedingActive)
+        bool calm = app.Cfg.Calm && !Angry;
+        double dx;
+        bool near = calm ? CursorAboveNear(out dx) : CursorInGrabZone(out dx);
+        if (!near || homeBound || app.FeedingActive || Attentive)
         {
             Enter(St.Idle, Rng.Range(0.5, 1.2));
             return;
         }
         if (Math.Abs(dx) > BodyW * 0.4) Facing = Math.Sign(dx);
+        TrackCursorWithEyes(true);
         var c = app.Cursor;
         HeadPoint(out double hx, out double hy);
         double rx = X, ry = hy - HH * 0.3;
         bool still = now - c.LastMoveTime > 0.3;
-        if (MathX.Hypot(c.X - rx, c.Y - ry) < BodyW * 0.8 && still && !MouseButtonDown()) Grab(true);
+        bool canHang = CanHangFrom(c.X, c.Y); // pointeur trop bas : il lève les bras sans s'y pendre
+        if (canHang && MathX.Hypot(c.X - rx, c.Y - ry) < BodyW * 0.8 && still && !MouseButtonDown()) { Grab(calm); return; }
+        if (!calm && canHang && now >= reachJumpAt && now >= grabCooldown && !MouseButtonDown()) GrabJump(now);
+    }
+
+    /// <summary>Les deux bras tendus vers le pointeur (directions calculées depuis chaque épaule).</summary>
+    private void AimArms(int wiggle, out Arm left, out Arm right)
+    {
+        // épaules dans le dessin debout (origine aux pieds), comme dans PetPainter.DrawArm
+        left = AimArm(-11, -12, 12 + wiggle, mirrored: false);
+        right = AimArm(10, -12, 13 - wiggle, mirrored: true);
+    }
+
+    private Arm AimArm(double lx, double ly, double len, bool mirrored)
+    {
+        var c = app.Cursor;
+        double sx = X + Facing * lx * RenderScale, sy = Y + ly * RenderScale;  // l'épaule à l'écran
+        double vx = (c.X - sx) * Facing, vy = c.Y - sy;                         // direction dans le dessin
+        double d = Math.Max(1, MathX.Hypot(vx, vy));
+        int dx = (int)Math.Round(vx / d * len), dy = (int)Math.Round(vy / d * len);
+        if (mirrored) dx = -dx; // le bras droit est dessiné en miroir du gauche
+        return new Arm(ArmK.Aim, (sbyte)dx, (sbyte)dy);
     }
 
     // ------------------------------------------------------------------ dormir
@@ -484,14 +677,17 @@ internal sealed partial class Pet
             }
             case St.HangCursor:
             {
-                int d = (int)Math.Round(swing * 2);
-                double sp = Math.Abs(swingV);
-                int kick = sp > 2 ? ((int)(T * 8) & 1) : ((int)(T * 2) & 1);
+                // le balancement est fait par la rotation du dessin autour de la main
+                double sp = SwingSpeed;
+                bool swinging = sp > 1.6;
+                int kick = swinging ? ((int)(T * 8) & 1) : ((int)(T * 2) & 1);
                 bool happy = !Angry && T > 0.4;
                 return HangBasePose with
                 {
-                    DX = d, L = Arm.Hold.Shift(-d, 0), R = sp > 2 ? Arm.Out : Arm.Raised,
-                    Kick = kick, Eyes = happy ? Eyes.Happy : Eyes.Wide, Mouth = happy ? Mouth.Grin : Mouth.SmallO,
+                    R = swinging ? Arm.Out : Arm.Raised,
+                    Kick = kick,
+                    Eyes = happy ? Eyes.Happy : Eyes.Wide,
+                    Mouth = swinging && happy ? Mouth.Open : happy ? Mouth.Grin : Mouth.SmallO,
                 };
             }
             case St.ClimbCursor:
@@ -514,10 +710,12 @@ internal sealed partial class Pet
             }
             case St.ReachUp:
             {
+                // les bras pointent vers le pointeur, et s'agitent un peu ; il piétine d'impatience
                 int f = (int)(T * 3) & 1;
+                AimArms(f, out Arm l, out Arm r);
                 return PetPose.Stand with
                 {
-                    L = f == 0 ? Arm.Reach : Arm.Up, R = f == 0 ? Arm.Up : Arm.Reach, LookY = -1, LookX = 0,
+                    L = l, R = r, LookY = lookY, LookX = lookX,
                     Eyes = Eyes.Wide, Mouth = Mouth.Smile, LiftA = f, LiftB = 1 - f,
                 };
             }

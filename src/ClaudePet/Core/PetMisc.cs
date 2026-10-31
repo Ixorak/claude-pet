@@ -39,11 +39,91 @@ internal sealed partial class Pet
             case "grab": Grab(false); break;
             case "grabcalm": Grab(true); break;
             case "wake": WakeUp(); break;
+            case "swingtest": SwingTest(now); break;
+            case "swinglow": SwingLowTest(now); break;
+            case "reachtest": ReachTest(now); break;
+            case "pettest": PetTest(now); break;
+            case "climbwin": Log.Write("Escalade d'une fenêtre : " + TryClimbWindow()); break;
             case "climb": if (State != St.Hidden) Log.Write("Grimper : " + GoClimb()); break;
             case "jumpwin": if (State != St.Hidden) Log.Write("Saut vers une fenêtre : " + TryJumpToWindow()); break;
             case "hopdown": Log.Write("Redescendre : " + TryHopDown()); break;
             case "tunnel": Log.Write("Tunnel : " + StartTunnel()); break;
         }
+    }
+
+    /// <summary>
+    /// Outil de test du balancement : un pointeur imaginaire (la vraie souris ne bouge pas) attrapé au-dessus de Pet,
+    /// qui fait un grand pas à droite, un à gauche, puis de petits allers-retours ; à la fin, Pet est lâché.
+    /// </summary>
+    private void SwingTest(double now0)
+    {
+        if (!Physical || State == St.Air) return;
+        // assez haut pour qu'il se balance librement au-dessus du sol
+        double sx = X, sy = Math.Max(Scr.Work.Top + HH, Scr.Floor - HH * 2.8), step = BodyW * 2;
+        app.Cursor.FakeUntil = now0 + 8;
+        app.Cursor.Fake = t =>
+        {
+            double u = t - now0;
+            double x = sx;
+            if (u < 0.8) x = sx;
+            else if (u < 1.15) x = sx + step * MathX.SmoothStep((u - 0.8) / 0.35);
+            else if (u < 3.0) x = sx + step;
+            else if (u < 3.3) x = sx + step - step * MathX.SmoothStep((u - 3.0) / 0.3);
+            else if (u < 5.0) x = sx;
+            else if (u < 6.6) x = sx + Math.Sin((u - 5.0) * 2 * Math.PI / 1.4) * BodyW * 0.3;
+            return (x, sy);
+        };
+        app.Cursor.Update(now0);
+        Grab(false);
+        hangUntil = now0 + 60;
+        swingTestEnd = now0 + 7.6;
+        Log.Write("Test du balancement (pointeur imaginaire, 7,6 s)");
+    }
+
+    /// <summary>Test : pendu à un pointeur imaginaire près du bas de l'écran, qui descend encore (il doit lâcher).</summary>
+    private void SwingLowTest(double now0)
+    {
+        if (!Physical || State == St.Air) return;
+        double floor = Scr.Floor, sx = X;
+        app.Cursor.FakeUntil = now0 + 6;
+        app.Cursor.Fake = t =>
+        {
+            double u = t - now0;
+            double y = u < 2.5 ? floor - HH * 1.25 : floor - HH * 1.25 + (HH * 0.6) * MathX.SmoothStep((u - 2.5) / 1.5);
+            return (sx, y);
+        };
+        app.Cursor.Update(now0);
+        Grab(false);
+        hangUntil = now0 + 60;
+        swingTestEnd = now0 + 5.8;
+        Log.Write("Test : pendu près du bas de l'écran (pointeur imaginaire)");
+    }
+
+    /// <summary>Test : un pointeur imaginaire au-dessus de Pet, qui passe de droite à gauche : ses bras le visent.</summary>
+    private void ReachTest(double now0)
+    {
+        if (!Physical || State == St.Air) return;
+        double sx = X, sy = Y;
+        app.Cursor.FakeUntil = now0 + 5;
+        app.Cursor.Fake = t =>
+        {
+            double u = MathX.Clamp((t - now0 - 0.8) / 3.0, 0, 1);
+            return (sx + BodyW * (1.0 - 2.0 * u), sy - HH * (2.3 - 0.8 * Math.Sin(u * Math.PI)));
+        };
+        app.Cursor.Update(now0);
+        StartReachUp(now0);
+        reachJumpAt = now0 + 100;
+        Log.Write("Test : bras levés vers un pointeur imaginaire");
+    }
+
+    /// <summary>Test : un pointeur imaginaire caresse Pet pendant 4 s.</summary>
+    private void PetTest(double now0)
+    {
+        double cx = X, cy = Y - HH * 0.6;
+        app.Cursor.FakeUntil = now0 + 4.2;
+        app.Cursor.Fake = t => (cx + Math.Sin((t - now0) * 2 * Math.PI / 0.55) * HW * 0.7, cy);
+        app.Cursor.Update(now0);
+        if (StartPetting(now0)) { petTestUntil = now0 + 4; Log.Write("Test : caresses (pointeur imaginaire)"); }
     }
 
     public void Debug_Goto(double x, double y)

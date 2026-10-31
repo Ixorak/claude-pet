@@ -26,7 +26,8 @@ internal static class Pal
 internal enum Eyes : byte { Open, Closed, Happy, Wide, Dizzy, Angry, Squeeze, Half, Swirl }
 internal enum Mouth : byte { None, Smile, SmallO, Open, Wide, Frown, Yawn, Chew, Grin }
 internal enum Legs : byte { Stand, Sit, Dangle, Tuck, None, Spread, Kneel }
-internal enum ArmK : byte { Side, SideUp, Raised, Up, Down, Hold, Out, Reach, Dig }
+/// <summary>Formes de bras. Aim : bras tendu dans une direction, la main à (DX, DY) de l'épaule.</summary>
+internal enum ArmK : byte { Side, SideUp, Raised, Up, Down, Hold, Out, Reach, Dig, Aim }
 
 internal readonly record struct Arm(ArmK Kind, sbyte DX = 0, sbyte DY = 0)
 {
@@ -89,8 +90,10 @@ internal static class PetPainter
         uint leg = Col.Lerp(Pal.Leg, Pal.AngryLeg, red);
 
         DrawLegs(c, p, left, right, bottom, leg);
-        DrawArm(c, p.L, left, right, top, false, body, 0);
-        DrawArm(c, p.R, left, right, top, true, body, 0);
+        // les bras qui visent le pointeur passent devant le corps (dessinés à la fin, avec leur contour)
+        bool frontL = p.L.Kind == ArmK.Aim, frontR = p.R.Kind == ArmK.Aim;
+        if (!frontL) DrawArm(c, p.L, left, right, top, false, body, 0);
+        if (!frontR) DrawArm(c, p.R, left, right, top, true, body, 0);
 
         // Corps
         c.Rect(left, top, right, bottom, body);
@@ -109,6 +112,20 @@ internal static class PetPainter
         c.Outline(Pal.Outline);
 
         DrawFace(c, p, left, right, top, body);
+        if (frontL) DrawArmFront(c, p.L, left, right, top, false, body);
+        if (frontR) DrawArmFront(c, p.R, left, right, top, true, body);
+    }
+
+    /// <summary>Un bras dessiné devant le corps : d'abord son contour (trait plus épais), puis sa couleur.</summary>
+    private static void DrawArmFront(ArtCanvas c, Arm a, int left, int right, int top, bool mirror, uint col)
+    {
+        int rx = left + 1, ry = top + 9;                 // l'épaule, comme dans DrawArm
+        int hx = rx + a.DX, hy = ry + a.DY;
+        int mir = mirror ? left + right : int.MinValue;
+        // le contour part un peu après l'épaule : le bras sort du corps sans trait sombre à la jointure
+        int sx = rx + Math.Sign(a.DX), sy = ry + Math.Sign(a.DY);
+        Stroke(c, sx, sy, hx, hy, 5, Pal.Outline, mir);
+        Stroke(c, rx, ry, hx, hy, 3, col, mir);
     }
 
     private static void DrawLegs(ArtCanvas c, in PetPose p, int left, int right, int bottom, uint col)
@@ -180,6 +197,7 @@ internal static class PetPainter
             case ArmK.Out: hx = sx - 5; hy = sy; break;
             case ArmK.Hold: rx = sx + 2; ry = top + 3; hx = sx + 2; hy = top - 7; break;
             case ArmK.Dig: hx = sx - 3; hy = sy + 7; break;
+            case ArmK.Aim: hx = rx; hy = ry; break; // la main est à (DX, DY) de l'épaule (ajouté juste après)
             default: hx = sx - 3; hy = sy + 1; break;
         }
         hx += a.DX; hy += a.DY;

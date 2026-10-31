@@ -133,6 +133,36 @@ internal static unsafe class Blit
         }
     }
 
+    /// <summary>
+    /// Comme <see cref="Art"/>, mais tourné autour d'un pivot. (pivotX, pivotY) : le pivot dans le rectangle du dessin
+    /// droit ; (offX, offY) : le coin du rectangle tourné dans ce même repère. cos/sin : l'angle du dessin
+    /// (corps vers la droite = positif). Chaque pixel de destination va chercher le pixel d'art qui tombe dessus
+    /// (rotation inverse, plus proche voisin) : les pixels d'art restent des carrés nets, inclinés.
+    /// </summary>
+    public static void ArtRotated(ArtCanvas c, int bx0, int by0, int bw, int bh, double scale, double cos, double sin,
+        double pivotX, double pivotY, int offX, int offY, uint* dst, int stride, int dw, int dh)
+    {
+        double inv = 1.0 / scale;
+        uint[] px = c.Px;
+        int cw = c.W;
+        for (int dy = 0; dy < dh; dy++)
+        {
+            double ry = dy + offY + 0.5 - pivotY;
+            double rx0 = offX + 0.5 - pivotX;
+            // rotation inverse : u = R(angle) · (d − pivot) + pivot, calculée de proche en proche le long de la ligne
+            double ux = cos * rx0 - sin * ry + pivotX, uy = sin * rx0 + cos * ry + pivotY;
+            uint* d = dst + dy * stride;
+            for (int dx = 0; dx < dw; dx++, ux += cos, uy += sin)
+            {
+                if (ux < 0 || uy < 0) continue;
+                int ax = (int)(ux * inv), ay = (int)(uy * inv);
+                if (ax >= bw || ay >= bh) continue;
+                uint col = px[(by0 + ay) * cw + bx0 + ax];
+                if ((col >> 24) != 0) d[dx] = Col.Premul(col);
+            }
+        }
+    }
+
     /// <summary>Pose un sprite (grille ARGB) agrandi d'un facteur entier, avec une opacité.</summary>
     public static void Sprite(uint[] src, int sw, int sh, int k, double alpha, uint* dst, int stride, int dw, int dh, int x0, int y0)
     {
