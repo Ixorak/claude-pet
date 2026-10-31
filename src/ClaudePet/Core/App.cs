@@ -477,7 +477,19 @@ internal sealed unsafe partial class App
             case Tray.CmdCalm: SetCalm(!Cfg.Calm); break;
             case Tray.CmdMute: SetMuted(!Cfg.Muted); break;
             case Tray.CmdHome: GoHome(); break;
+            case Tray.CmdEnglish: SetLanguage(Lang.En); break;
+            case Tray.CmdFrench: SetLanguage(Lang.Fr); break;
         }
+    }
+
+    /// <summary>Change la langue de Pet (gardée dans les réglages) : les menus et les bulles suivent tout de suite.</summary>
+    public void SetLanguage(string code)
+    {
+        if (code is not (Lang.En or Lang.Fr) || code == Lang.Code) return;
+        Lang.Set(code);
+        Cfg.Language = code;
+        Bubbles?.OnLanguageChanged();
+        Log.Write("Langue : " + code);
     }
 
     public void SetCalm(bool on)

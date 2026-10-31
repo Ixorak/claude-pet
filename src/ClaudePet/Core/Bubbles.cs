@@ -7,19 +7,19 @@ namespace ClaudePet.Core;
 
 /// <summary>
 /// Les bulles d'options au-dessus de Pet (double-clic) : Calme, Nourrir, Muet, Dormir, Rentrer à la maison,
-/// Réglages (volume, taille), et la jauge de faim. Elles se ferment quand Ixorak clique ailleurs :
+/// Réglages (volume, taille, langue), et la jauge de faim. Elles se ferment quand Ixorak clique ailleurs :
 /// la fenêtre des bulles prend le focus à l'ouverture (comme un menu) et se ferme quand elle le perd.
 /// Si Windows refuse de lui donner le focus, on surveille simplement l'état des boutons de la souris.
 /// </summary>
 internal sealed unsafe class Bubbles
 {
-    private enum Kind { Gauge, Calm, Feed, Mute, Sleep, Home, Settings, Panel, VolSlider, SizeSlider }
+    private enum Kind { Gauge, Calm, Feed, Mute, Sleep, Home, Settings, Panel, VolSlider, SizeSlider, LangRow, LangEn, LangFr }
 
     private struct Item
     {
         public Kind K;
         public int X, Y, W, H, Order;
-        public bool Clickable => K is not (Kind.Gauge or Kind.Panel);
+        public bool Clickable => K is not (Kind.Gauge or Kind.Panel or Kind.LangRow);
     }
 
     private readonly App app;
@@ -97,17 +97,22 @@ internal sealed unsafe class Bubbles
 
     private static string Label(Kind k) => k switch
     {
-        Kind.Calm => "Calme",
-        Kind.Feed => "Nourrir",
-        Kind.Mute => "Muet",
-        Kind.Sleep => "Dormir",
-        Kind.Home => "Rentrer à la maison",
-        Kind.Settings => "Réglages",
-        Kind.Gauge => "Faim",
+        Kind.Calm => Lang.Calm,
+        Kind.Feed => Lang.Feed,
+        Kind.Mute => Lang.Mute,
+        Kind.Sleep => Lang.Sleep,
+        Kind.Home => Lang.GoHome,
+        Kind.Settings => Lang.Settings,
+        Kind.Gauge => Lang.Hunger,
+        Kind.LangEn => "EN",
+        Kind.LangFr => "FR",
         _ => "",
     };
 
-    private const int H = 18, Gap = 4, Pad = 4, IconW = 12, ToggleW = 13, BarW = 46;
+    private const int H = 18, Gap = 4, Pad = 4, IconW = 12, ToggleW = 13, BarW = 46, ChipH = 11;
+
+    /// <summary>Pastille d'une langue (« EN », « FR ») : contour, 3 pixels de marge de chaque côté.</summary>
+    private static int ChipWidth(Kind k) => PixelFont.Width(Label(k)) + 8;
 
     private static int BubbleWidth(Kind k)
     {
@@ -128,12 +133,19 @@ internal sealed unsafe class Bubbles
 
         if (settings)
         {
-            int panelH = 1 + 3 + 16 + 3 + 16 + 3 + 1;
+            // trois lignes : volume, taille, langue ; les curseurs et les pastilles commencent après la plus longue étiquette
+            int panelH = 1 + 3 + 16 + 3 + 16 + 3 + 16 + 3 + 1;
             items.Add(new Item { K = Kind.Panel, X = 0, Y = y, W = width, H = panelH, Order = order++ });
-            sliderX0 = 1 + Pad + PixelFont.Width("Volume") + 6;
+            int labelW = Math.Max(PixelFont.Width(Lang.Volume), Math.Max(PixelFont.Width(Lang.Size), PixelFont.Width(Lang.Language)));
+            sliderX0 = 1 + Pad + labelW + 6;
             sliderW = Math.Max(40, width - sliderX0 - Pad - 1 - PixelFont.Width("100") - 6);
             items.Add(new Item { K = Kind.VolSlider, X = 0, Y = y + 4, W = width, H = 16, Order = order });
             items.Add(new Item { K = Kind.SizeSlider, X = 0, Y = y + 4 + 16 + 3, W = width, H = 16, Order = order++ });
+            int rowY = y + 4 + 2 * (16 + 3);
+            int wEn = ChipWidth(Kind.LangEn), wFr = ChipWidth(Kind.LangFr);
+            items.Add(new Item { K = Kind.LangRow, X = 0, Y = rowY, W = width, H = 16, Order = order });
+            items.Add(new Item { K = Kind.LangEn, X = sliderX0, Y = rowY + 2, W = wEn, H = ChipH, Order = order });
+            items.Add(new Item { K = Kind.LangFr, X = sliderX0 + wEn + 3, Y = rowY + 2, W = wFr, H = ChipH, Order = order++ });
             y += panelH + 1 + Gap;
         }
 
@@ -285,7 +297,21 @@ internal sealed unsafe class Bubbles
                 openT = Clock.Now - 0.2;
                 Layout();
                 break;
+            case Kind.LangEn:
+            case Kind.LangFr:
+                app.Play(Snd.Click, 0.7);
+                app.SetLanguage(k == Kind.LangFr ? Lang.Fr : Lang.En);
+                break;
         }
+        dirty = true;
+    }
+
+    /// <summary>La langue a changé : les étiquettes n'ont plus la même largeur, on refait la mise en page.</summary>
+    public void OnLanguageChanged()
+    {
+        if (!IsOpen) return;
+        hover = pressed = -1;
+        Layout();
         dirty = true;
     }
 
@@ -469,7 +495,7 @@ internal sealed unsafe class Bubbles
             {
                 bool vol = it.K == Kind.VolSlider;
                 int ty = y + 1;
-                Text(vol ? "Volume" : "Taille", it.X + 1 + Pad, ty, Ink, a);
+                Text(vol ? Lang.Volume : Lang.Size, it.X + 1 + Pad, ty, Ink, a);
                 double f = vol ? app.Cfg.Volume / 100.0 : (app.Cfg.Size - Config.MinSize) / (double)(Config.MaxSize - Config.MinSize);
                 int tx = it.X + sliderX0, trackY = y + 6;
                 Rect(tx, trackY, sliderW, 4, Ink, a);
@@ -483,13 +509,28 @@ internal sealed unsafe class Bubbles
                 Text(val, tx + sliderW + 6, ty, Ink, a);
                 return;
             }
+            case Kind.LangRow:
+                Text(Lang.Language, it.X + 1 + Pad, y + 2, Ink, a);
+                return;
+            case Kind.LangEn:
+            case Kind.LangFr:
+            {
+                // la langue choisie est pleine (orange, lettres blanches) ; l'autre se colore au survol
+                bool chosen = (it.K == Kind.LangFr) == Lang.French;
+                uint back = chosen ? Orange : fill;
+                Rect(it.X + 1, y + 1, it.W - 2, it.H - 2, back, a);
+                for (int i = it.X + 1; i < it.X + it.W - 1; i++) { Put(i, y, Ink, a); Put(i, y + it.H - 1, Ink, a); }
+                for (int j = y + 1; j < y + it.H - 1; j++) { Put(it.X, j, Ink, a); Put(it.X + it.W - 1, j, Ink, a); }
+                Text(Label(it.K), it.X + 4, y, chosen ? Col.Rgb(255, 255, 255) : Ink, a);
+                return;
+            }
             case Kind.Gauge:
             {
                 Bubble(it.X, y, it.W, it.H, Fill, a);
                 Icon(Icons.Berry, it.X + 1 + Pad, iconY, a);
                 int x = it.X + 1 + Pad + IconW + 4;
-                Text("Faim", x, textY, Ink, a);
-                x += PixelFont.Width("Faim") + 6;
+                Text(Lang.Hunger, x, textY, Ink, a);
+                x += PixelFont.Width(Lang.Hunger) + 6;
                 double sat = app.Satiety;
                 int segs = 10, sw = (BarW - (segs + 1)) / segs;
                 int bx = x, by = y + 6;

@@ -71,7 +71,7 @@ internal static unsafe class Program
     private static int SendCommand(string text)
     {
         nint h = User32.FindWindow(App.ControllerClass, null);
-        if (h == 0) { Console.Error.WriteLine("Claude Pet n'est pas lancé."); return 1; }
+        if (h == 0) { Console.Error.WriteLine("Claude Pet is not running."); return 1; }
         fixed (char* p = text + "\0")
         {
             COPYDATASTRUCT cds = new() { dwData = 1, cbData = (uint)((text.Length + 1) * 2), lpData = (nint)p };

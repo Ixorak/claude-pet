@@ -4,11 +4,11 @@ using ClaudePet.Native;
 
 namespace ClaudePet.Core;
 
-/// <summary>Icône dans la zone de notification, avec un petit menu (Calme, Muet, Rentrer à la maison).</summary>
+/// <summary>Icône dans la zone de notification, avec un petit menu (Calme, Muet, Langue, Rentrer à la maison).</summary>
 internal sealed unsafe class Tray
 {
     public const uint CallbackMessage = C.WM_APP + 1;
-    public const uint CmdCalm = 1001, CmdMute = 1002, CmdHome = 1003;
+    public const uint CmdCalm = 1001, CmdMute = 1002, CmdHome = 1003, CmdEnglish = 1004, CmdFrench = 1005;
     private const uint Id = 1;
     private nint hwnd, icon;
     private bool added;
@@ -74,10 +74,15 @@ internal sealed unsafe class Tray
         nint menu = User32.CreatePopupMenu();
         User32.AppendMenu(menu, C.MF_STRING | C.MF_GRAYED, 0, "Claude Pet");
         User32.AppendMenu(menu, C.MF_SEPARATOR, 0, null);
-        User32.AppendMenu(menu, C.MF_STRING | (calm ? C.MF_CHECKED : 0), CmdCalm, "Calme");
-        User32.AppendMenu(menu, C.MF_STRING | (muted ? C.MF_CHECKED : 0), CmdMute, "Muet");
+        User32.AppendMenu(menu, C.MF_STRING | (calm ? C.MF_CHECKED : 0), CmdCalm, Lang.Calm);
+        User32.AppendMenu(menu, C.MF_STRING | (muted ? C.MF_CHECKED : 0), CmdMute, Lang.Mute);
+        // chaque langue écrite dans sa propre langue ; DestroyMenu détruit aussi ce sous-menu
+        nint langs = User32.CreatePopupMenu();
+        User32.AppendMenu(langs, C.MF_STRING | C.MF_RADIOCHECK | (Lang.French ? 0 : C.MF_CHECKED), CmdEnglish, "English");
+        User32.AppendMenu(langs, C.MF_STRING | C.MF_RADIOCHECK | (Lang.French ? C.MF_CHECKED : 0), CmdFrench, "Français");
+        User32.AppendMenu(menu, C.MF_STRING | C.MF_POPUP, (nuint)langs, Lang.Language);
         User32.AppendMenu(menu, C.MF_SEPARATOR, 0, null);
-        User32.AppendMenu(menu, C.MF_STRING, CmdHome, "Rentrer à la maison");
+        User32.AppendMenu(menu, C.MF_STRING, CmdHome, Lang.GoHome);
         User32.SetForegroundWindow(hwnd);
         uint cmd = (uint)User32.TrackPopupMenuEx(menu, C.TPM_RIGHTBUTTON | C.TPM_RETURNCMD | C.TPM_NONOTIFY | C.TPM_BOTTOMALIGN,
             x, y, hwnd, 0);

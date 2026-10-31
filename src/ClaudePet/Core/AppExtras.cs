@@ -241,6 +241,7 @@ internal sealed unsafe partial class App
         switch (a[0])
         {
             case "calm": SetCalm(a.Length < 2 || a[1] == "on"); break;
+            case "lang": if (a.Length > 1) SetLanguage(a[1]); break;
             case "mute": SetMuted(a.Length < 2 || a[1] == "on"); break;
             case "bubbles": OpenBubbles(); break;
             case "stats": Log.Write(TakeStats()); break;

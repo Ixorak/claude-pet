@@ -2,7 +2,8 @@
 ; - installation pour l'utilisateur, sans droits administrateur ;
 ; - raccourci « Pet » avec l'icône maison sur le bureau (c'est la maison de Pet) ;
 ; - démarrage automatique avec Windows (clé « Run » de l'utilisateur) ;
-; - désinstalleur qui enlève tout : programme, raccourcis, démarrage automatique et réglages (%AppData%\Pet).
+; - désinstalleur qui enlève tout : programme, raccourcis, démarrage automatique et réglages (%AppData%\Pet) ;
+; - en anglais ou en français (la langue de Windows, l'anglais sinon) : Pet démarre dans la langue de l'installation.
 
 #define AppName "Claude Pet"
 #define AppVersion "1.0.0"
@@ -31,10 +32,18 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 CloseApplications=no
-ShowLanguageDialog=no
+ShowLanguageDialog=auto
 
 [Languages]
+; l'anglais d'abord : c'est la langue par défaut quand Windows n'est ni en anglais ni en français
+Name: "en"; MessagesFile: "compiler:Default.isl"
 Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
+
+[CustomMessages]
+en.LaunchPet=Launch Pet now
+fr.LaunchPet=Lancer Pet maintenant
+en.ShortcutFailed=The "Pet" shortcut could not be created on the desktop (an antivirus may be blocking it).%nPet still works: without his house, he pops out of the ground at the bottom of the main screen.
+fr.ShortcutFailed=Le raccourci « Pet » n'a pas pu être créé sur le bureau (un antivirus le bloque peut-être).%nPet fonctionne quand même : sans sa maison, il sort du sol en bas de l'écran principal.
 
 [Files]
 Source: "..\out\app\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
@@ -47,7 +56,7 @@ Name: "{userprograms}\Claude Pet"; Filename: "{app}\{#AppExe}"; WorkingDir: "{ap
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ClaudePet"; ValueData: """{app}\{#AppExe}"""; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Lancer Pet maintenant"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchPet}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 Type: files; Name: "{userdesktop}\Pet.lnk"
@@ -80,18 +89,29 @@ begin
   Result := True;
 end;
 
+{ Premier lancement : Pet parlera la langue de l'installation. Des réglages déjà là (mise à jour) ne sont pas touchés. }
+procedure WriteFirstLanguage();
+var
+  Dir: String;
+begin
+  Dir := ExpandConstant('{userappdata}\Pet');
+  if FileExists(Dir + '\config.json') then Exit;
+  ForceDirectories(Dir);
+  SaveStringToFile(Dir + '\config.json', '{ "Language": "' + ActiveLanguage + '" }', False);
+end;
+
 { Le raccourci « Pet » du bureau (la maison de Pet), avec l'icône maison de l'exe. }
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep <> ssPostInstall then Exit;
+  WriteFirstLanguage();
   try
     CreateShellLink(ExpandConstant('{userdesktop}\Pet.lnk'), 'Claude Pet',
       ExpandConstant('{app}\{#AppExe}'), '', ExpandConstant('{app}'),
       ExpandConstant('{app}\{#AppExe}'), 0, SW_SHOWNORMAL);
   except
     if not WizardSilent then
-      MsgBox('Le raccourci « Pet » n''a pas pu être créé sur le bureau (un antivirus le bloque peut-être).' + #13#10 +
-        'Pet fonctionne quand même : sans sa maison, il sort du sol en bas de l''écran principal.', mbInformation, MB_OK);
+      MsgBox(CustomMessage('ShortcutFailed'), mbInformation, MB_OK);
   end;
 end;
 

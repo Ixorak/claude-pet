@@ -11,15 +11,13 @@ internal sealed partial class Pet
     private bool chewAfterLanding;
     private double nextMunch, nextCrumb;
 
-    // Bulle de parole (« J'ai faim ! »)
+    // Bulle de parole (« I'm hungry! » / « J'ai faim ! »)
     private double sayUntil, nextHungrySay = 60;
     private string sayText = "";
     private bool sayVisible;
     private int sayU, sayX0, sayY0, sayLW, sayLH;
     private uint[] sayBuf = new uint[16];
     private string sayBufText = "";
-
-    private const string HungryText = "J'ai faim !";
 
     // ------------------------------------------------------------------ événements
 
@@ -44,7 +42,7 @@ internal sealed partial class Pet
     public void OnBecameHungry()
     {
         if (app.FeedingActive) return;
-        Say(HungryText, 4.5);
+        Say(Lang.Hungry, 4.5);
         nextHungrySay = Clock.Now + Rng.Range(45, 90);
     }
 
@@ -227,7 +225,7 @@ internal sealed partial class Pet
         if (!app.Hungry || app.FeedingActive || now < nextHungrySay) return;
         if (State is St.Hidden or St.Underground or St.HomeJump or St.EnterDoor or St.Dig or St.ExitDoor or St.Emerge or St.Sleep) return;
         nextHungrySay = now + Rng.Range(40, 80);
-        Say(HungryText, 4);
+        Say(Lang.Hungry, 4);
     }
 
     // ------------------------------------------------------------------ poses

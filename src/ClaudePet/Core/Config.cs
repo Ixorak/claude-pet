@@ -20,6 +20,8 @@ internal sealed class ConfigData
     public double LastUnbiased { get; set; }
     /// <summary>Repère du démarrage de Windows à la dernière sauvegarde.</summary>
     public long BootStamp { get; set; }
+    /// <summary>Langue : « en » ou « fr ». Absente : réglages d'avant les langues (voir <see cref="Config.Load"/>).</summary>
+    public string? Language { get; set; }
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true)]
@@ -42,16 +44,18 @@ internal sealed class Config
     public bool Muted { get => D.Muted; set { D.Muted = value; Save(); } }
     public int Volume { get => D.Volume; set { D.Volume = Math.Clamp(value, 0, 100); Save(); } }
     public int Size { get => D.Size; set { D.Size = Math.Clamp(value, MinSize, MaxSize); Save(); } }
+    public string Language { get => D.Language ?? Lang.En; set { D.Language = value; Save(); } }
 
     public void Load()
     {
+        bool existed = false;
         try
         {
             if (File.Exists(FilePath))
             {
                 string text = File.ReadAllText(FilePath);
                 var d = JsonSerializer.Deserialize(text, ConfigJson.Default.ConfigData);
-                if (d != null) D = d;
+                if (d != null) { D = d; existed = true; }
                 lastSaved = text;
             }
         }
@@ -64,6 +68,14 @@ internal sealed class Config
         D.Size = Math.Clamp(D.Size == 0 ? DefaultSize : D.Size, MinSize, MaxSize);
         if (double.IsNaN(D.HungerSeconds) || D.HungerSeconds < 0) D.HungerSeconds = 0;
         if (double.IsNaN(D.LonelySeconds) || D.LonelySeconds < 0) D.LonelySeconds = 0;
+        if (D.Language is not (Lang.En or Lang.Fr))
+        {
+            // Des réglages sans langue datent d'avant les langues (la copie d'Ixorak) : on garde le français.
+            // Premier lancement : l'anglais (l'installateur écrit la langue choisie avant, s'il y en a une).
+            D.Language = existed && string.IsNullOrEmpty(D.Language) ? Lang.Fr : Lang.En;
+            Save();
+        }
+        Lang.Set(D.Language);
     }
 
     /// <summary>Demande une sauvegarde : elle sera écrite au plus tard une seconde après (voir <see cref="Flush"/>).</summary>
