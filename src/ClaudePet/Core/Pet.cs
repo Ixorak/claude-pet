@@ -33,6 +33,7 @@ internal enum St : byte
     WakeUp,      // se réveille (s'étire)
     MouthOpen,   // ouvre grand la bouche devant la baie
     Eat,         // mâche la baie
+    Climb,       // grimpe à un bord de l'écran
 }
 
 internal enum AirKind : byte { Fall, Thrown, Jump, Hop, Grab, Wild }
@@ -116,12 +117,15 @@ internal sealed partial class Pet
         T += dt;
         if (pressing && !dragging && now - pressT > 0.2) StartDrag();
         if (homeBound) UpdateHomeBound(now);
+        TrackSupport(now);
+        CheckFullscreen();
         if (app.FeedingActive) FeedThink(now);
 
         switch (State)
         {
             case St.MouthOpen: UpdateMouthOpen(dt, now); break;
             case St.Eat: UpdateEat(dt, now); break;
+            case St.Climb: UpdateClimb(dt, now); break;
             case St.Hidden: break;
             case St.ExitDoor: UpdateExitDoor(dt); break;
             case St.HomeJump: UpdateHomeJump(dt); break;
@@ -183,6 +187,14 @@ internal sealed partial class Pet
     /// <summary>Intervalle conseillé avant la prochaine mise à jour (économie de processeur).</summary>
     public double DesiredInterval()
     {
+        double d = BaseInterval();
+        // sur une fenêtre : la suivre de près quand elle bouge
+        if (supportHwnd != 0) d = Math.Min(d, SupportMovedRecently ? 1.0 / 60 : 0.1);
+        return d;
+    }
+
+    private double BaseInterval()
+    {
         switch (State)
         {
             case St.Hidden: return 1.0;
@@ -197,6 +209,7 @@ internal sealed partial class Pet
             case St.ReachUp:
             case St.MouthOpen:
             case St.Eat:
+            case St.Climb:
                 return 1.0 / 30;
             default: return 1.0 / 60;
         }

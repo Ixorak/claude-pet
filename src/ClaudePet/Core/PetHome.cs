@@ -222,7 +222,9 @@ internal sealed partial class Pet
         if (T >= Dur)
         {
             if (quitAfterDig) { State = St.Hidden; app.QuitSoon(0.2); return; }
-            Enter(St.Underground, 0.8);
+            // le trajet sous terre dure d'autant plus longtemps que la sortie est loin
+            double travel = emergeScreen != null ? Math.Abs(emergeX - X) : 0;
+            Enter(St.Underground, MathX.Clamp(0.7 + travel / (BodyW * 14), 0.7, 2.5));
             OnUnderground();
         }
     }

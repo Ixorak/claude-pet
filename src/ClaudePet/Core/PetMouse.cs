@@ -157,6 +157,17 @@ internal sealed partial class Pet
         }
     }
 
+    /// <summary>Une baie calme Pet tout de suite quand il est énervé : le rouge s'efface pendant qu'il mâche.</summary>
+    private void CalmDownWithFood()
+    {
+        if (!Angry) return;
+        double now = Clock.Now;
+        angryUntil = now + 0.5;
+        angryStart = Math.Min(angryStart, now - 0.3);
+        taps.Clear();
+        Log.Write("Pet se calme : il a mangé");
+    }
+
     private void AngryDecide()
     {
         Span<double> w = stackalloc double[4];

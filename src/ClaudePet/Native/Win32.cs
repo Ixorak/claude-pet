@@ -190,6 +190,8 @@ internal static class C
     public const uint WS_CHILD = 0x40000000;
     public const int GWL_STYLE = -16;
     public const int GWL_EXSTYLE = -20;
+    public const uint WS_THICKFRAME = 0x00040000;
+    public const uint GW_OWNER = 4;
     public const int GWLP_USERDATA = -21;
 
     // Messages

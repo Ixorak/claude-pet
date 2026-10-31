@@ -39,6 +39,10 @@ internal sealed partial class Pet
             case "grab": Grab(false); break;
             case "grabcalm": Grab(true); break;
             case "wake": WakeUp(); break;
+            case "climb": if (State != St.Hidden) Log.Write("Grimper : " + GoClimb()); break;
+            case "jumpwin": if (State != St.Hidden) Log.Write("Saut vers une fenêtre : " + TryJumpToWindow()); break;
+            case "hopdown": Log.Write("Redescendre : " + TryHopDown()); break;
+            case "tunnel": Log.Write("Tunnel : " + StartTunnel()); break;
         }
     }
 

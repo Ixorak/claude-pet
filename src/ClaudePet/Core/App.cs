@@ -218,6 +218,7 @@ internal sealed unsafe partial class App
 
     private void OnScreensChanged()
     {
+        nextWinScan = 0;
         if (Pet.State == St.Hidden) return;
         Pet.OnScreensChanged();
     }

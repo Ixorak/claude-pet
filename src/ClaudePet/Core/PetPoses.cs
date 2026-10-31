@@ -44,6 +44,9 @@ internal sealed partial class Pet
             case St.Eat:
                 p = FeedPose();
                 break;
+            case St.Climb:
+                p = ClimbPose();
+                break;
             default: p = IdlePose(); break;
         }
         p = ExtraPose(p, ref clipY);

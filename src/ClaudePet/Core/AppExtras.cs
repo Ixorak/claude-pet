@@ -41,7 +41,7 @@ internal sealed unsafe partial class App
     public void OpenBubbles()
     {
         if (Pet.State is St.Hidden or St.Air or St.Dragged or St.HangCursor or St.SitCursor or St.ClimbCursor
-            or St.HomeJump or St.EnterDoor or St.Dig or St.Underground or St.ExitDoor or St.Emerge) return;
+            or St.HomeJump or St.EnterDoor or St.Dig or St.Underground or St.ExitDoor or St.Emerge or St.Climb) return;
         if (Pet.State == St.Sleep) Pet.WakeUp();
         Pet.PrepareForBubbles();
         Bubbles.Open();
@@ -61,6 +61,7 @@ internal sealed unsafe partial class App
     {
         var r = DesktopIcons.Find(HouseName, out var icon);
         Desk.Refresh();
+        Windows.Scan(Desk);   // savoir quels écrans sont en plein écran avant de sortir
         if (r == DesktopIcons.Result.Found)
         {
             var s = Desk.At((icon.Rect.Left + icon.Rect.Right) / 2.0, (icon.Rect.Top + icon.Rect.Bottom) / 2.0);
@@ -106,6 +107,7 @@ internal sealed unsafe partial class App
         if (spawnPending && now >= nextSpawnTry) TrySpawn(now);
         if (quitAt > 0 && now >= quitAt) Quit();
         UpdateHunger(now);
+        MaybeScanWindows(now);
     }
 
     private partial void AfterPetUpdate(double dt, double now)
@@ -237,6 +239,21 @@ internal sealed unsafe partial class App
             case "mute": SetMuted(a.Length < 2 || a[1] == "on"); break;
             case "bubbles": OpenBubbles(); break;
             case "stats": Log.Write(TakeStats()); break;
+            case "fs":
+                // « fs 1 on » : l'écran 1 est considéré en plein écran ; « fs 1 auto » : détection normale
+                if (a.Length > 2 && int.TryParse(a[1], out int si))
+                {
+                    if (a[2] == "auto") Windows.Override.Remove(si);
+                    else Windows.Override[si] = a[2] == "on";
+                    ScanWindowsNow();
+                }
+                break;
+            case "windows":
+                ScanWindowsNow();
+                Log.Write($"Fenêtres : {Windows.Windows.Count} normales, {Windows.Platforms.Count} plates-formes ; écrans : "
+                          + string.Join(" ", Desk.Screens.Select(s => $"#{s.Index}{(s.Fullscreen ? "=plein" : "=libre")}")));
+                foreach (var p in Windows.Platforms.Take(20)) Log.Write($"  plate-forme y={p.Y:F0} x={p.X0:F0}..{p.X1:F0}");
+                break;
             case "sleep": Pet.SleepUntilClicked(); break;
             case "sound":
                 if (a.Length > 1 && Enum.TryParse<Snd>(a[1], true, out var snd)) Play(snd, 1.0);
