@@ -36,3 +36,7 @@ de GitHub est en anglais (`README.md`) avec sa version française (`README.fr.md
 - Les scripts `.ps1` avec accents doivent être en UTF-8 avec BOM (PowerShell 5.1), `build.bat` en CRLF,
   `installer\PetSetup.iss` en UTF-8 avec BOM.
 - Ne rien modifier dans le registre pendant le développement (le démarrage auto est fait par l'installateur).
+- **Pousser sur GitHub** : git n'a pas d'identifiants à lui ; passer par `gh` pour la seule commande, sans toucher à
+  la config : `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin master`.
+- GitHub ne lit pas les MP4 dans un README (balise vidéo retirée, fichiers bruts refusés) : la démo passe par les GIF de
+  `docs\` ; un lecteur vidéo intégré demande de déposer la vidéo depuis un navigateur connecté au compte.
