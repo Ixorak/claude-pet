@@ -24,9 +24,18 @@ internal enum St : byte
     Dig,         // creuse dans le sol
     Underground, // sous terre (invisible), en chemin
     Emerge,      // sort du sol
+    Tapped,      // vient de se faire taper (petit sonné)
+    HangCursor,  // pendu au pointeur
+    ClimbCursor, // grimpe sur le pointeur
+    SitCursor,   // assis sur le pointeur
+    ReachUp,     // lève les bras vers le pointeur (mode calme)
+    Sleep,       // dort
+    WakeUp,      // se réveille (s'étire)
+    MouthOpen,   // ouvre grand la bouche devant la baie
+    Eat,         // mâche la baie
 }
 
-internal enum AirKind : byte { Fall, Thrown, Jump, Hop }
+internal enum AirKind : byte { Fall, Thrown, Jump, Hop, Grab, Wild }
 
 internal enum Contact : byte { None, Floor, Ceiling, Platform }
 
@@ -107,9 +116,12 @@ internal sealed partial class Pet
         T += dt;
         if (pressing && !dragging && now - pressT > 0.2) StartDrag();
         if (homeBound) UpdateHomeBound(now);
+        if (app.FeedingActive) FeedThink(now);
 
         switch (State)
         {
+            case St.MouthOpen: UpdateMouthOpen(dt, now); break;
+            case St.Eat: UpdateEat(dt, now); break;
             case St.Hidden: break;
             case St.ExitDoor: UpdateExitDoor(dt); break;
             case St.HomeJump: UpdateHomeJump(dt); break;
@@ -117,11 +129,22 @@ internal sealed partial class Pet
             case St.Dig: UpdateDig(dt); break;
             case St.Underground: UpdateUnderground(dt); break;
             case St.Emerge: UpdateEmerge(dt); break;
+            case St.Tapped: UpdateTapped(dt); break;
+            case St.HangCursor: UpdateHang(dt, now); break;
+            case St.ClimbCursor: UpdateClimbCursor(dt, now); break;
+            case St.SitCursor: UpdateSitCursor(dt, now); break;
+            case St.ReachUp: UpdateReachUp(dt, now); break;
+            case St.Sleep: UpdateSleep(dt, now); break;
+            case St.WakeUp:
+                if (!CheckSupport()) break;
+                if (T >= Dur) Enter(St.Idle, Rng.Range(0.6, 1.4));
+                break;
             case St.Idle: UpdateIdle(dt); break;
             case St.Walk: UpdateWalk(dt); break;
             case St.Sit:
                 if (!CheckSupport()) break;
                 TrackCursorWithEyes();
+                if (ReactToCursor(now)) break;
                 if (T >= Dur) Enter(St.Idle, Rng.Range(0.3, 1.0));
                 break;
             case St.Stretch:
@@ -131,6 +154,7 @@ internal sealed partial class Pet
             case St.Look:
                 if (!CheckSupport()) break;
                 UpdateLook();
+                if (ReactToCursor(now)) break;
                 if (T >= Dur) Enter(St.Idle, Rng.Range(0.3, 1.0));
                 break;
             case St.JumpPrep:
@@ -150,7 +174,9 @@ internal sealed partial class Pet
             case St.Dragged: UpdateDragged(dt, now); break;
         }
 
-        ShowStars = State == St.Stunned;
+        ShowStars = State == St.Stunned || (State == St.Tapped && T > 0.12);
+        FeedMoodTick(now);
+        UpdateMood(dt, now);
         UpdateBlink(now);
     }
 
@@ -161,11 +187,17 @@ internal sealed partial class Pet
         {
             case St.Hidden: return 1.0;
             case St.Underground: return 1.0 / 20;
+            case St.Sleep: return UserAway ? 0.5 : 0.25;
             case St.Idle:
             case St.Sit:
             case St.Look:
-                return 1.0 / 20;
-            case St.Stunned: return 1.0 / 20;
+                return Angry || clickPending ? 1.0 / 30 : 1.0 / 20;
+            case St.Stunned:
+            case St.Tapped:
+            case St.ReachUp:
+            case St.MouthOpen:
+            case St.Eat:
+                return 1.0 / 30;
             default: return 1.0 / 60;
         }
     }
@@ -203,9 +235,13 @@ internal sealed partial class Pet
     /// <summary>Vrai quand Pet est soumis aux collisions (pas tenu, pas caché, pas dans une animation de porte ou de terrier).</summary>
     public bool Physical => State switch
     {
-        St.Hidden or St.Dragged or St.ExitDoor or St.HomeJump or St.EnterDoor or St.Dig or St.Underground or St.Emerge => false,
+        St.Hidden or St.Dragged or St.ExitDoor or St.HomeJump or St.EnterDoor or St.Dig or St.Underground or St.Emerge
+            or St.HangCursor or St.ClimbCursor or St.SitCursor => false,
         _ => true,
     };
+
+    /// <summary>Accroché au pointeur : les clics d'Ixorak doivent passer à travers Pet.</summary>
+    public bool ClickThrough => State is St.HangCursor or St.ClimbCursor or St.SitCursor;
 
     // ------------------------------------------------------------------ collisions
 
@@ -319,6 +355,7 @@ internal sealed partial class Pet
 
     private void UpdateAir(double dt)
     {
+        if (!FreeAt(X, Y)) Resolve();
         VY += G * dt;
         double maxFall = 5200 * K;
         if (VY > maxFall) VY = maxFall;
@@ -343,15 +380,20 @@ internal sealed partial class Pet
         else if (c == Contact.Floor || c == Contact.Platform)
         {
             OnTouchDown(c);
+            return;
         }
+        if (air == AirKind.Grab) CheckGrabInAir();
+        AirTick(dt);
     }
+
+    private partial void AirTick(double dt);
 
     private void OnTouchDown(Contact c)
     {
         double impact = VY;
         double drop = Y - peakY;
         if (firstDrop == 0) firstDrop = drop;
-        bool wild = air == AirKind.Thrown || air == AirKind.Fall;
+        bool wild = air == AirKind.Thrown || air == AirKind.Fall || air == AirKind.Wild;
         double bounceMin = 430 * K;
 
         if (wild && impact > bounceMin && bounces < 7)
@@ -430,11 +472,14 @@ internal sealed partial class Pet
     {
         if (!CheckSupport()) return;
         TrackCursorWithEyes();
+        if (Attentive) { lookY = -1; return; }
+        if (ReactToCursor(Clock.Now)) return;
         if (T >= Dur) Decide();
     }
 
     private void UpdateWalk(double dt)
     {
+        if (ReactToCursor(Clock.Now)) return;
         double sp = speed * SpeedFactor();
         double d = targetX - X;
         if (Math.Abs(d) < 1.5 || sp <= 1)
@@ -509,6 +554,7 @@ internal sealed partial class Pet
     public void OnMouseDown(double cx, double cy, double now)
     {
         if (State == St.Hidden) return;
+        if (TryDoubleClick(now)) return;
         pressing = true;
         dragging = false;
         pressT = now;

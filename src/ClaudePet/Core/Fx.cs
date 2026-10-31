@@ -80,7 +80,21 @@ internal sealed unsafe class Fx
     public bool Active => ps.Count > 0 || overlays;
 
     /// <summary>Cadence utile : rapide pour les particules qui volent, lente pour les étoiles qui tournent.</summary>
-    public double DesiredInterval => ps.Count > 0 ? 1.0 / 60 : overlays ? 1.0 / 24 : double.MaxValue;
+    public double DesiredInterval
+    {
+        get
+        {
+            if (ps.Count == 0) return overlays ? 1.0 / 24 : double.MaxValue;
+            bool onlyZed = true;
+            foreach (var p in ps)
+            {
+                if (p.Kind is not (FxKind.Zed or FxKind.Heart or FxKind.Note)) return 1.0 / 60;
+                if (p.Kind != FxKind.Zed) onlyZed = false;
+            }
+            // Les « Z » du sommeil flottent lentement : 4 images par seconde suffisent (CPU quasi nul pendant qu'il dort).
+            return overlays ? 1.0 / 24 : onlyZed ? 1.0 / 4 : 1.0 / 12;
+        }
+    }
     private bool overlays;
     private bool wasShown;
 

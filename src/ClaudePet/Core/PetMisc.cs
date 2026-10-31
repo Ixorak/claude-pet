@@ -29,6 +29,19 @@ internal sealed partial class Pet
         StartFall(vx * K, vy * K, AirKind.Thrown);
     }
 
+    public void DebugAction(string what)
+    {
+        double now = Clock.Now;
+        switch (what)
+        {
+            case "tap": Tap(now); break;
+            case "angry": StartAngry(now); break;
+            case "grab": Grab(false); break;
+            case "grabcalm": Grab(true); break;
+            case "wake": WakeUp(); break;
+        }
+    }
+
     public void Debug_Goto(double x, double y)
     {
         X = x; Y = y;

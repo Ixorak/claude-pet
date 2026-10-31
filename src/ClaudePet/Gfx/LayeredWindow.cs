@@ -18,9 +18,11 @@ internal sealed unsafe class LayeredWindow
     public bool Shown;
     private bool clickThrough;
 
-    public LayeredWindow(string className, bool clickThrough)
+    /// <param name="activatable">Vrai pour une fenêtre qui peut prendre le focus (les bulles, comme un menu).</param>
+    public LayeredWindow(string className, bool clickThrough, bool activatable = false)
     {
-        uint ex = C.WS_EX_LAYERED | C.WS_EX_TOPMOST | C.WS_EX_TOOLWINDOW | C.WS_EX_NOACTIVATE;
+        uint ex = C.WS_EX_LAYERED | C.WS_EX_TOPMOST | C.WS_EX_TOOLWINDOW;
+        if (!activatable) ex |= C.WS_EX_NOACTIVATE;
         if (clickThrough) ex |= C.WS_EX_TRANSPARENT;
         this.clickThrough = clickThrough;
         Hwnd = User32.CreateWindowEx(ex, className, "Claude Pet", C.WS_POPUP, 0, 0, 1, 1, 0, 0, Kernel32.GetModuleHandle(null), 0);
@@ -64,7 +66,8 @@ internal sealed unsafe class LayeredWindow
         POINT dst = new(x, y), src = new(0, 0);
         SIZE size = new(w, h);
         BLENDFUNCTION bf = new() { BlendOp = C.AC_SRC_OVER, SourceConstantAlpha = 255, AlphaFormat = C.AC_SRC_ALPHA };
-        User32.UpdateLayeredWindow(Hwnd, 0, &dst, &size, memDC, &src, 0, &bf, C.ULW_ALPHA);
+        if (User32.UpdateLayeredWindow(Hwnd, 0, &dst, &size, memDC, &src, 0, &bf, C.ULW_ALPHA) == 0)
+            ClaudePet.Util.Log.Write($"UpdateLayeredWindow a échoué ({w}x{h} à {x},{y}, capacité {capW}x{capH}, erreur {System.Runtime.InteropServices.Marshal.GetLastSystemError()})");
         X = x; Y = y; W = w; H = h;
         if (!Shown)
         {

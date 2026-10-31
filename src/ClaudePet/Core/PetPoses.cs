@@ -31,9 +31,24 @@ internal sealed partial class Pet
             case St.Emerge:
                 p = HomePose(out clipY);
                 break;
+            case St.Tapped:
+            case St.HangCursor:
+            case St.ClimbCursor:
+            case St.SitCursor:
+            case St.ReachUp:
+            case St.Sleep:
+            case St.WakeUp:
+                p = MousePose();
+                break;
+            case St.MouthOpen:
+            case St.Eat:
+                p = FeedPose();
+                break;
             default: p = IdlePose(); break;
         }
         p = ExtraPose(p, ref clipY);
+        p = FeedRetouch(p);
+        p = ApplyMood(p);
         if (Blinking && (p.Eyes == Eyes.Open || p.Eyes == Eyes.Wide || p.Eyes == Eyes.Half)) p.Eyes = Eyes.Closed;
         lastPose = p;
         return p;

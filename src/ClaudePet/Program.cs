@@ -17,7 +17,7 @@ internal static unsafe class Program
         int ci = Array.IndexOf(args, "--cmd");
         if (ci >= 0) return SendCommand(string.Join(' ', args.Skip(ci + 1)));
 
-        if (args.Contains("--log")) Log.Open(Path.Combine(Config.Folder, "log.txt"));
+        if (args.Contains("--log")) Log.Open(Path.Combine(Config.Folder, "journal.txt"));
 
         // Une seule instance : si Pet est déjà là, il rentre dans sa maison et l'appli se ferme.
         nint mutex = Kernel32.CreateMutex(0, 0, "Local\\ClaudePet.SingleInstance");

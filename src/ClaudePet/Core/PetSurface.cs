@@ -24,12 +24,9 @@ internal sealed partial class Pet
 
     private partial bool CanBeGrabbed() => (Physical || State == St.Dragged) && !homeBound;
 
-    private partial void OnClick(double cx, double cy, double now)
-    {
-        // étape 3 : taper / double-clic
-    }
-
     private partial void OnReleased() { }
+
+    private partial void AirTick(double dt) { }
 
     private partial void OnGoHomeStarted() { }
 
@@ -38,9 +35,4 @@ internal sealed partial class Pet
     private partial void OnHiddenAll() { }
 
     private partial ClaudePet.Art.PetPose ExtraPose(ClaudePet.Art.PetPose p, ref double clipY) => p;
-
-    /// <summary>Surcouches supplémentaires dans la fenêtre d'effets (bulles...).</summary>
-    public void ExtraOverlays(Fx fx, int k) { }
-
-    public unsafe void ExtraDraw(uint* bits, int stride, int dw, int dh, int left, int top) { }
 }

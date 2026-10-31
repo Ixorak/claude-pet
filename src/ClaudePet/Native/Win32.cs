@@ -121,16 +121,6 @@ internal struct ICONINFO
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct MSLLHOOKSTRUCT
-{
-    public POINT pt;
-    public uint mouseData;
-    public uint flags;
-    public uint time;
-    public nuint dwExtraInfo;
-}
-
-[StructLayout(LayoutKind.Sequential)]
 internal struct LASTINPUTINFO
 {
     public uint cbSize;
@@ -333,10 +323,6 @@ internal static class C
     public const uint NIN_SELECT = WM_USER + 0;
     public const uint NIN_KEYSELECT = WM_USER + 1;
 
-    // Hooks
-    public const int WH_MOUSE_LL = 14;
-    public const int HC_ACTION = 0;
-
     // DWM
     public const uint DWMWA_EXTENDED_FRAME_BOUNDS = 9;
     public const uint DWMWA_CLOAKED = 14;
@@ -357,14 +343,6 @@ internal static class C
     public const uint COINIT_APARTMENTTHREADED = 0x2;
     public const uint CLSCTX_LOCAL_SERVER = 0x4;
     public const uint CLSCTX_ALL = 0x17;
-    public const uint PROCESS_VM_OPERATION = 0x0008;
-    public const uint PROCESS_VM_READ = 0x0010;
-    public const uint PROCESS_VM_WRITE = 0x0020;
-    public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
-    public const uint MEM_COMMIT = 0x1000;
-    public const uint MEM_RESERVE = 0x2000;
-    public const uint MEM_RELEASE = 0x8000;
-    public const uint PAGE_READWRITE = 0x04;
 
     // waveOut
     public const uint WAVE_MAPPER = 0xFFFFFFFF;
@@ -372,18 +350,15 @@ internal static class C
     public const uint WHDR_DONE = 0x00000001;
     public const ushort WAVE_FORMAT_PCM = 1;
 
-    // Liste du bureau
-    public const uint LVM_FIRST = 0x1000;
-    public const uint LVM_GETITEMCOUNT = LVM_FIRST + 4;
-    public const uint LVM_GETITEMRECT = LVM_FIRST + 14;
-    public const uint LVM_GETITEMPOSITION = LVM_FIRST + 16;
-    public const int LVIR_BOUNDS = 0;
-    public const int LVIR_ICON = 1;
-
     // Touches
     public const int VK_LBUTTON = 0x01;
     public const int VK_RBUTTON = 0x02;
+    public const int VK_MBUTTON = 0x04;
     public const int VK_ESCAPE = 0x1B;
+
+    // Activation
+    public const int WA_INACTIVE = 0;
+    public const int MA_ACTIVATE = 1;
 }
 
 internal static unsafe partial class User32
@@ -542,15 +517,6 @@ internal static unsafe partial class User32
     [LibraryImport(Dll)]
     public static partial int DestroyIcon(nint icon);
 
-    [LibraryImport(Dll, EntryPoint = "SetWindowsHookExW")]
-    public static partial nint SetWindowsHookEx(int idHook, delegate* unmanaged<int, nuint, nint, nint> proc, nint module, uint threadId);
-
-    [LibraryImport(Dll)]
-    public static partial int UnhookWindowsHookEx(nint hook);
-
-    [LibraryImport(Dll)]
-    public static partial nint CallNextHookEx(nint hook, int code, nuint wParam, nint lParam);
-
     [LibraryImport(Dll)]
     public static partial uint GetDoubleClickTime();
 
@@ -663,21 +629,6 @@ internal static unsafe partial class Kernel32
 
     [LibraryImport(Dll, EntryPoint = "GetModuleHandleW")]
     public static partial nint GetModuleHandle(char* name);
-
-    [LibraryImport(Dll, SetLastError = true)]
-    public static partial nint OpenProcess(uint access, int inherit, uint pid);
-
-    [LibraryImport(Dll, SetLastError = true)]
-    public static partial nint VirtualAllocEx(nint process, nint address, nuint size, uint type, uint protect);
-
-    [LibraryImport(Dll)]
-    public static partial int VirtualFreeEx(nint process, nint address, nuint size, uint type);
-
-    [LibraryImport(Dll, SetLastError = true)]
-    public static partial int WriteProcessMemory(nint process, nint address, void* buffer, nuint size, nuint* written);
-
-    [LibraryImport(Dll, SetLastError = true)]
-    public static partial int ReadProcessMemory(nint process, nint address, void* buffer, nuint size, nuint* read);
 
     [LibraryImport(Dll)]
     public static partial int QueryUnbiasedInterruptTime(ulong* time);

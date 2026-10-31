@@ -1,0 +1,8 @@
+# Fins de ligne : LF dans le dépôt, sauf les scripts batch (cmd.exe préfère CRLF).
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ico binary
+*.png binary
+*.bmp binary
+*.exe binary

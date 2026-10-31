@@ -5,8 +5,8 @@ namespace ClaudePet.Core;
 
 /// <summary>
 /// Retrouve une icône du bureau (le raccourci « Pet ») et sa position à l'écran.
-/// Méthode : IShellWindows → bureau → IShellBrowser → IShellView → IFolderView (GetItemPosition),
-/// puis le rectangle exact de l'image via la liste du bureau (LVM_GETITEMRECT) quand c'est possible.
+/// Méthode : IShellWindows → bureau → IShellBrowser → IShellView → IFolderView (GetItemPosition, GetSpacing)
+/// et IFolderView2 (taille des icônes). Uniquement des appels COM documentés : rien dans la mémoire d'un autre processus.
 /// </summary>
 internal static unsafe class DesktopIcons
 {
@@ -111,16 +111,9 @@ internal static unsafe class DesktopIcons
             if (list == 0) { Log.Write("Bureau : liste des icônes introuvable"); return Result.ShellNotReady; }
             if (User32.IsWindowVisible(list) == 0) { Log.Write("Bureau : les icônes du bureau sont masquées"); return Result.NotFound; }
 
-            // Rectangle exact de l'image, sinon calcul à partir de la position
-            if (TryItemIconRect(list, found, out RECT r))
-            {
-                POINT tl = new(r.Left, r.Top), br = new(r.Right, r.Bottom);
-                User32.ClientToScreen(list, &tl);
-                User32.ClientToScreen(list, &br);
-                icon.Rect = new RECT(tl.X, tl.Y, br.X, br.Y);
-                icon.How = "IFolderView + LVM_GETITEMRECT";
-            }
-            else
+            // Rectangle de l'image calculé à partir de ce que donne l'Explorateur : coin de la case de l'élément,
+            // espacement entre éléments et taille des icônes. L'image est centrée en largeur dans sa case, près du haut.
+            // (On ne lit ni n'écrit jamais dans la mémoire de l'Explorateur : les antivirus prennent ça pour une injection.)
             {
                 POINT p = pos;
                 User32.ClientToScreen(list, &p);
@@ -130,10 +123,11 @@ internal static unsafe class DesktopIcons
                 int px = (int)Math.Round(iconLogical * dx / 96.0);
                 POINT spacing = default;
                 ((delegate* unmanaged<void*, POINT*, int>)Com.Vtbl(fv)[12])(fv, &spacing); // GetSpacing
-                int cellW = spacing.X > px ? spacing.X : px + (int)(28 * dx / 96.0);
-                int left = p.X + (cellW - px) / 2, top = p.Y + (int)Math.Round(2 * dx / 96.0);
+                int cellW = spacing.X > px ? spacing.X : px + (int)Math.Round(28 * dx / 96.0);
+                int left = p.X + (cellW - px) / 2, top = p.Y + (int)Math.Round(IconTopPad * dx / 96.0);
                 icon.Rect = new RECT(left, top, left + px, top + px);
-                icon.How = "IFolderView (position calculée)";
+                icon.How = "IFolderView (position, espacement, taille)";
+                Log.Write($"Bureau : position {pos.X},{pos.Y} (écran {p.X},{p.Y}), espacement {spacing.X}x{spacing.Y}, dpi {dx}");
             }
             // l'image de l'icône est carrée : on garde le carré centré dans le rectangle trouvé
             int size = Math.Min(icon.Rect.Width, icon.Rect.Height);
@@ -174,33 +168,6 @@ internal static unsafe class DesktopIcons
         return new string(buf);
     }
 
-    /// <summary>Rectangle de l'image d'un élément de la liste du bureau (mémoire partagée avec l'Explorateur).</summary>
-    private static bool TryItemIconRect(nint list, int index, out RECT rect)
-    {
-        rect = default;
-        uint pid;
-        User32.GetWindowThreadProcessId(list, &pid);
-        nint proc = Kernel32.OpenProcess(C.PROCESS_VM_OPERATION | C.PROCESS_VM_READ | C.PROCESS_VM_WRITE, 0, pid);
-        if (proc == 0) return false;
-        nint remote = 0;
-        try
-        {
-            remote = Kernel32.VirtualAllocEx(proc, 0, (nuint)sizeof(RECT), C.MEM_COMMIT | C.MEM_RESERVE, C.PAGE_READWRITE);
-            if (remote == 0) return false;
-            RECT r = new() { Left = C.LVIR_ICON };
-            nuint n;
-            if (Kernel32.WriteProcessMemory(proc, remote, &r, (nuint)sizeof(RECT), &n) == 0) return false;
-            nuint res;
-            if (User32.SendMessageTimeout(list, C.LVM_GETITEMRECT, (nuint)index, remote, 0x0002, 1000, &res) == 0 || res == 0) return false;
-            if (Kernel32.ReadProcessMemory(proc, remote, &r, (nuint)sizeof(RECT), &n) == 0) return false;
-            if (r.Width <= 0 || r.Height <= 0) return false;
-            rect = r;
-            return true;
-        }
-        finally
-        {
-            if (remote != 0) Kernel32.VirtualFreeEx(proc, remote, 0, C.MEM_RELEASE);
-            Kernel32.CloseHandle(proc);
-        }
-    }
+    /// <summary>Marge entre le haut de la case d'un élément du bureau et l'image de son icône (pixels à 100 %).</summary>
+    private const int IconTopPad = 2;
 }

@@ -58,7 +58,7 @@ internal static class MathX
     public static double Hypot(double x, double y) => Math.Sqrt(x * x + y * y);
 }
 
-/// <summary>Journal de débogage (activé par --log), dans %AppData%\Pet\log.txt.</summary>
+/// <summary>Journal de débogage (activé par --log), dans %AppData%\Pet\journal.txt.</summary>
 internal static class Log
 {
     private static StreamWriter? writer;

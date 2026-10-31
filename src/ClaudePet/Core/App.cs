@@ -140,10 +140,42 @@ internal sealed unsafe partial class App
 
     private partial double ExtrasInterval();
 
+    // mesure de la charge (commande de test « stats »)
+    private long statTicks;
+    private double statBusy, statSince;
+    private readonly double[] statPart = new double[5]; // logique, rendu Pet, rendu effets, premier plan, reste
+
+    public string TakeStats()
+    {
+        double now = Clock.Now, span = Math.Max(0.001, now - statSince);
+        double n = Math.Max(1, statTicks);
+        string s = $"Charge : {statTicks / span:F1} mises à jour par seconde, {statBusy * 1000 / n:F2} ms chacune, {statBusy / span * 100:F2} % d'un cœur"
+                 + $" | logique {statPart[0] * 1000 / n:F2} ms, Pet {statPart[1] * 1000 / n:F2} ms, effets {statPart[2] * 1000 / n:F2} ms, premier plan {statPart[3] * 1000 / n:F2} ms, reste {statPart[4] * 1000 / n:F2} ms";
+        statTicks = 0; statBusy = 0; statSince = now;
+        Array.Clear(statPart);
+        return s;
+    }
+
+    private double statMark;
+    private void Lap(int part)
+    {
+        double t = Clock.Now;
+        statPart[part] += t - statMark;
+        statMark = t;
+    }
+
     private void Tick(double now)
+    {
+        TickInner(now);
+        statTicks++;
+        statBusy += Clock.Now - now;
+    }
+
+    private void TickInner(double now)
     {
         double dt = Math.Clamp(now - lastTick, 0, 0.05);
         lastTick = now;
+        statMark = now;
         Cursor.Update(now);
         if (screensDirty || now >= nextScreenCheck)
         {
@@ -155,21 +187,27 @@ internal sealed unsafe partial class App
         Pet.Update(dt, now);
         AfterPetUpdate(dt, now);
         Fx.Update(dt);
+        Lap(0);
         RenderPet();
+        Lap(1);
         Fx.Render(Pet);
+        Lap(2);
         RenderExtras(now);
         if (now >= nextTopmost)
         {
-            nextTopmost = now + 1.5;
+            // rappel « au premier plan » : plus espacé quand il dort ou qu'Ixorak est absent
+            nextTopmost = now + (Pet.State == St.Sleep || SysInfo.UserIdleSeconds > 60 ? 5 : 1.5);
             PetWin.BringToTop();
             FxWin.BringToTop();
             BringExtrasToTop();
         }
+        Lap(3);
         if (now >= nextSave)
         {
             nextSave = now + 60;
             SaveState();
         }
+        Lap(4);
     }
 
     private partial void BeforePetUpdate(double dt, double now);
@@ -393,7 +431,11 @@ internal sealed unsafe partial class App
     private partial void DebugCommand(string text);
 
     /// <summary>Rentrer à la maison, puis quitter.</summary>
-    public void GoHome() => Pet.GoHome();
+    public void GoHome()
+    {
+        if (FeedingActive) { Berry.Poof(); Pet.OnFeedingCancelled(); }
+        Pet.GoHome();
+    }
 
     public void Quit()
     {

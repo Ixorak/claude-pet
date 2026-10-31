@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <!-- Sorties du build rangées dans F:\protos\Pet\out\bin (ignoré par Git).
+         Les anciens chemins (src\ClaudePet\bin, publish\ClaudePet.exe) sont verrouillés par la quarantaine de Bitdefender
+         depuis le 31 octobre 2026 : voir RAPPORT.md. -->
+    <BaseOutputPath>$(MSBuildThisFileDirectory)..\..\out\bin\</BaseOutputPath>
+  </PropertyGroup>
+</Project>

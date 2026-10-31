@@ -17,20 +17,33 @@ internal sealed partial class Pet
         StartFall(Rng.Range(-200, 200) * K, 0, AirKind.Fall);
     }
 
-    /// <summary>Facteur de vitesse (la faim ralentit Pet : étape 4).</summary>
-    private double SpeedFactor() => 1.0;
+    /// <summary>Facteur de vitesse : la faim ralentit Pet (mais une baie en vue le motive un peu).</summary>
+    private double SpeedFactor()
+    {
+        double f = app.HungerSpeed;
+        if (app.FeedingActive) f = Math.Max(f, 0.35);
+        return f;
+    }
 
     /// <summary>Choisit la prochaine activité.</summary>
     private void Decide()
     {
-        bool calm = app.Cfg.Calm;
+        if (Angry) { AngryDecide(); return; }
+        double hunger = app.HungerSpeed;
+        if (hunger < 0.12)
+        {
+            // très faim depuis longtemps : il ne bouge plus et reste assis (rien de grave, une baie et tout repart)
+            Enter(St.Sit, Rng.Range(20, 40));
+            return;
+        }
+        bool calm = app.Cfg.Calm, hungry = app.Hungry;
         Span<double> w = stackalloc double[6];
-        w[0] = calm ? 26 : 40;  // marcher
-        w[1] = calm ? 0 : 12;   // courir
-        w[2] = calm ? 42 : 14;  // s'asseoir
+        w[0] = (calm ? 26 : 40) * (hungry ? hunger : 1);  // marcher
+        w[1] = calm || hungry ? 0 : 12;   // courir
+        w[2] = (calm ? 42 : 14) + (hungry ? 30 : 0);  // s'asseoir
         w[3] = 12;              // regarder autour
         w[4] = calm ? 5 : 6;    // s'étirer
-        w[5] = calm ? 0 : 7;    // petit saut sur place
+        w[5] = calm || hungry ? 0 : 7;    // petit saut sur place
         switch (Rng.Pick(w))
         {
             case 0: if (!StartWander(false)) Enter(St.Sit, Rng.Range(3, 8)); break;
@@ -103,11 +116,18 @@ internal sealed partial class Pet
     private void ArriveWalk()
     {
         if (HomeArrived()) return;
-        Enter(St.Idle, app.Cfg.Calm ? Rng.Range(1.5, 4.0) : Rng.Range(0.4, 2.0));
+        Enter(St.Idle, Angry ? Rng.Range(0.05, 0.3) : app.Cfg.Calm ? Rng.Range(1.5, 4.0) : Rng.Range(0.4, 2.0));
     }
 
     private void OnWalkBlocked()
     {
+        if (app.FeedingActive)
+        {
+            // la baie est derrière un mur : il attend là en la regardant
+            feedWaitUntil = Clock.Now + 1.0;
+            Enter(St.Idle, Rng.Range(0.6, 1.2));
+            return;
+        }
         // un mur : demi-tour (l'escalade viendra à l'étape 5)
         Facing = -Facing;
         Enter(St.Idle, Rng.Range(0.4, 1.0));
