@@ -244,10 +244,13 @@ internal sealed partial class Pet
     }
 
     private double reachJumpAt;
+    /// <summary>Bras gauche / droit (dans le dessin) qui passe devant le corps vers le pointeur placé sur le côté.</summary>
+    private bool aimCrossL, aimCrossR;
 
     private void StartReachUp(double now)
     {
         reachJumpAt = now + Rng.Range(1.0, 2.6);
+        aimCrossL = aimCrossR = false;
         Enter(St.ReachUp);
         app.Play(Snd.Happy, 0.25);
     }
@@ -571,23 +574,35 @@ internal sealed partial class Pet
         if (!calm && canHang && now >= reachJumpAt && now >= grabCooldown && !MouseButtonDown()) GrabJump(now);
     }
 
-    /// <summary>Les deux bras tendus vers le pointeur (directions calculées depuis chaque épaule).</summary>
+    /// <summary>
+    /// Les deux bras tendus vers le pointeur, chacun de son côté : un bras ne passe jamais devant le corps ;
+    /// quand le pointeur est en haut ou de l'autre côté, il monte le long du flanc.
+    /// </summary>
     private void AimArms(int wiggle, out Arm left, out Arm right)
     {
-        // épaules dans le dessin debout (origine aux pieds), comme dans PetPainter.DrawArm
-        left = AimArm(-11, -12, 12 + wiggle, mirrored: false);
-        right = AimArm(10, -12, 13 - wiggle, mirrored: true);
+        left = AimArm(false, 7 + wiggle, ref aimCrossL);
+        right = AimArm(true, 8 - wiggle, ref aimCrossR);
     }
 
-    private Arm AimArm(double lx, double ly, double len, bool mirrored)
+    /// <summary>
+    /// Un bras vers le pointeur. Pointeur au-dessus de lui : le bras se lève de son côté. Pointeur sur le côté :
+    /// il le pointe, quitte à passer devant le corps (depuis une épaule plus basse, sous l'œil).
+    /// </summary>
+    private Arm AimArm(bool right, double len, ref bool crossing)
+    {
+        var (vx, vy) = AimVector(right, false);
+        crossing = PetPainter.AimCrosses(vx, vy, right, crossing);
+        if (crossing) (vx, vy) = AimVector(right, true);
+        return PetPainter.AimArm(vx, vy, len, right, crossing);
+    }
+
+    /// <summary>Du point d'épaule au pointeur, dans le dessin (retourné si Pet regarde à gauche).</summary>
+    private (double vx, double vy) AimVector(bool right, bool cross)
     {
         var c = app.Cursor;
-        double sx = X + Facing * lx * RenderScale, sy = Y + ly * RenderScale;  // l'épaule à l'écran
-        double vx = (c.X - sx) * Facing, vy = c.Y - sy;                         // direction dans le dessin
-        double d = Math.Max(1, MathX.Hypot(vx, vy));
-        int dx = (int)Math.Round(vx / d * len), dy = (int)Math.Round(vy / d * len);
-        if (mirrored) dx = -dx; // le bras droit est dessiné en miroir du gauche
-        return new Arm(ArmK.Aim, (sbyte)dx, (sbyte)dy);
+        var (lx, ly) = PetPainter.AimShoulder(PetPose.Stand, right, cross);   // dans le dessin debout
+        double sx = X + Facing * lx * RenderScale, sy = Y + ly * RenderScale;  // à l'écran
+        return ((c.X - sx) * Facing, c.Y - sy);
     }
 
     // ------------------------------------------------------------------ dormir

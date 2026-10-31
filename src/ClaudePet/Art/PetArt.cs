@@ -26,10 +26,13 @@ internal static class Pal
 internal enum Eyes : byte { Open, Closed, Happy, Wide, Dizzy, Angry, Squeeze, Half, Swirl }
 internal enum Mouth : byte { None, Smile, SmallO, Open, Wide, Frown, Yawn, Chew, Grin }
 internal enum Legs : byte { Stand, Sit, Dangle, Tuck, None, Spread, Kneel }
-/// <summary>Formes de bras. Aim : bras tendu dans une direction, la main à (DX, DY) de l'épaule.</summary>
+/// <summary>
+/// Formes de bras. Aim : bras tendu dans une direction, la main à (DX, DY) de l'épaule ;
+/// (RX, RY) déplace l'épaule (x positif : vers le corps).
+/// </summary>
 internal enum ArmK : byte { Side, SideUp, Raised, Up, Down, Hold, Out, Reach, Dig, Aim }
 
-internal readonly record struct Arm(ArmK Kind, sbyte DX = 0, sbyte DY = 0)
+internal readonly record struct Arm(ArmK Kind, sbyte DX = 0, sbyte DY = 0, sbyte RX = 0, sbyte RY = 0)
 {
     public static readonly Arm Side = new(ArmK.Side);
     public static readonly Arm SideUp = new(ArmK.SideUp);
@@ -116,10 +119,71 @@ internal static class PetPainter
         if (frontR) DrawArmFront(c, p.R, left, right, top, true, body);
     }
 
+    /// <summary>Épaule d'un bras qui vise : juste à côté du corps (sur son liseré), en haut du flanc.</summary>
+    private static (int x, int y) AimRoot(int left, int top) => (left - 1, top + 6);
+
+    /// <summary>
+    /// Décalage de l'épaule d'un bras qui passe devant le corps (pointeur sur le côté) : plus bas et un peu
+    /// dans le corps, pour que le bras passe sous l'œil, comme avant.
+    /// </summary>
+    private const int CrossShiftX = 2, CrossShiftY = 3;
+
+    /// <summary>
+    /// Épaule d'un bras qui vise, dans le dessin (origine aux pieds). <paramref name="right"/> : le bras droit ;
+    /// <paramref name="cross"/> : le bras passe devant le corps.
+    /// </summary>
+    public static (int x, int y) AimShoulder(in PetPose p, bool right = false, bool cross = false)
+    {
+        int bw = Math.Max(8, p.BodyW);
+        int l = -(bw / 2) + p.DX, r = l + bw - 1;
+        int top = p.BodyBottom - Math.Max(6, p.BodyH) + 1;
+        var (x, y) = AimRoot(l, top);
+        if (cross) { x += CrossShiftX; y += CrossShiftY; }
+        return (right ? l + r - x : x, y);
+    }
+
+    /// <summary>Un bras levé de son côté penche toujours au moins un peu vers l'extérieur (≈ 17° de la verticale).</summary>
+    public const double AimMinOutward = 0.3;
+
+    /// <summary>
+    /// Le pointeur, vu de l'épaule à (vx, vy), est-il assez sur le côté pour que ce bras passe devant le corps ?
+    /// Au-dessus de lui, le bras se lève de son côté. Un peu d'hystérésis évite qu'il hésite à la limite.
+    /// </summary>
+    public static bool AimCrosses(double vx, double vy, bool right, bool wasCrossing)
+    {
+        double inward = right ? -vx : vx, up = -vy;
+        double deg = Math.Atan2(inward, up) * (180 / Math.PI); // 0 : droit au-dessus ; 90 : de l'autre côté, à l'horizontale
+        return deg > (wasCrossing ? 55 : 65);
+    }
+
+    /// <summary>
+    /// Bras tendu vers un point situé à (vx, vy) de son épaule, dans le dessin (vx positif vers la droite du dessin).
+    /// <paramref name="cross"/> faux : le bras reste de son côté (si le point est au-dessus de lui ou de l'autre côté,
+    /// il monte le long de son flanc). Vrai : il pointe droit vers le point, devant le corps.
+    /// <paramref name="len"/> : longueur en pixels art.
+    /// </summary>
+    public static Arm AimArm(double vx, double vy, double len, bool right, bool cross)
+    {
+        int outward = right ? 1 : -1;
+        double d = Math.Sqrt(vx * vx + vy * vy);
+        if (d < 1e-6) { vx = 0; vy = -1; } else { vx /= d; vy /= d; }
+        if (!cross && vx * outward < AimMinOutward)
+        {
+            vx = AimMinOutward * outward;
+            vy = -Math.Sqrt(1 - vx * vx);
+        }
+        int hx = (int)Math.Round(vx * len), hy = (int)Math.Round(vy * len);
+        if (right) hx = -hx; // le bras droit est dessiné en miroir du gauche
+        return cross
+            ? new Arm(ArmK.Aim, (sbyte)hx, (sbyte)hy, CrossShiftX, CrossShiftY)
+            : new Arm(ArmK.Aim, (sbyte)hx, (sbyte)hy);
+    }
+
     /// <summary>Un bras dessiné devant le corps : d'abord son contour (trait plus épais), puis sa couleur.</summary>
     private static void DrawArmFront(ArtCanvas c, Arm a, int left, int right, int top, bool mirror, uint col)
     {
-        int rx = left + 1, ry = top + 9;                 // l'épaule, comme dans DrawArm
+        var (rx, ry) = AimRoot(left, top);
+        rx += a.RX; ry += a.RY;
         int hx = rx + a.DX, hy = ry + a.DY;
         int mir = mirror ? left + right : int.MinValue;
         // le contour part un peu après l'épaule : le bras sort du corps sans trait sombre à la jointure

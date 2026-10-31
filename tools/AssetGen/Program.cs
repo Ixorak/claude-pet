@@ -19,6 +19,7 @@ internal static class Program
             case "ico": WriteIco(path); break;
             case "sheet": Sheets.Poses(path); break;
             case "house": Sheets.Houses(path); break;
+            case "aim": Sheets.Aim(path); break;
             default: Console.WriteLine("commande inconnue"); return 1;
         }
         Console.WriteLine("écrit : " + path);
@@ -189,6 +190,72 @@ internal static class Sheets
             for (int x = 0; x < cw; x++) img[(oy + c.OY * k) * W + ox + x] = 0xFF60C060;
         }
         Png.Save(path, img, W, H);
+    }
+
+    /// <summary>
+    /// Bras levés vers le pointeur (pose « ReachUp ») pour plusieurs positions du pointeur, marqué d'une croix bleue.
+    /// Même calcul que l'appli : Pet se tourne vers le pointeur s'il est assez loin sur le côté.
+    /// </summary>
+    public static void Aim(string path)
+    {
+        (int x, int y)[] points =
+        {
+            (24, -51), (0, -33), (-24, -51), (8, -45),
+            (20, -40), (30, -34), (40, -28), (48, -22),
+            (-48, -22), (50, -12), (-30, -30), (-14, -38),
+        };
+        const int k = 4, cols = 4, x0 = -60, y0 = -58, aw = 120, ah = 64;
+        int cw = aw * k, ch = ah * k;
+        int rows = (points.Length + cols - 1) / cols;
+        int W = cols * cw, H = rows * ch;
+        var img = new uint[W * H];
+        for (int i = 0; i < img.Length; i++)
+        {
+            int x = i % W, y = i / W;
+            img[i] = ((((x / cw) + (y / ch)) & 1) == 0) ? 0xFFE9EEF5 : 0xFFD5DCE6;
+        }
+        var c = PetPainter.NewCanvas();
+        var stand = PetPose.Stand;
+        for (int i = 0; i < points.Length; i++)
+        {
+            var (px, py) = points[i];
+            int facing = Math.Abs(px) > 24 * 0.4 ? Math.Sign(px) : 1;
+            double dxDraw = px * facing; // le pointeur dans le dessin (retourné si Pet regarde à gauche)
+            Arm ArmTo(bool right, double len)
+            {
+                var (sx, sy) = PetPainter.AimShoulder(stand, right);
+                bool cross = PetPainter.AimCrosses(dxDraw - sx, py - sy, right, false);
+                if (cross) (sx, sy) = PetPainter.AimShoulder(stand, right, cross: true);
+                return PetPainter.AimArm(dxDraw - sx, py - sy, len, right, cross);
+            }
+            var l = ArmTo(false, 7);
+            var r = ArmTo(true, 8);
+            PetPainter.Draw(c, stand with { L = l, R = r, Eyes = Eyes.Wide, Mouth = Mouth.Smile, LookY = -1, LookX = Math.Sign(dxDraw) });
+            int ox = (i % cols) * cw, oy = (i / cols) * ch;
+            for (int cy = 0; cy < c.H; cy++)
+                for (int cx = 0; cx < c.W; cx++)
+                {
+                    uint p = c.Px[cy * c.W + cx];
+                    if ((p >> 24) == 0) continue;
+                    int ax = cx - c.OX, ay = cy - c.OY;
+                    if (facing < 0) ax = -1 - ax;
+                    Fill(img, W, ox + (ax - x0) * k, oy + (ay - y0) * k, k, k, p);
+                }
+            for (int x = 0; x < cw; x++) img[(oy + (0 - y0) * k) * W + ox + x] = 0xFF60C060; // le sol
+            // le pointeur
+            int mx = ox + (px - x0) * k, my = oy + (py - y0) * k;
+            Fill(img, W, mx - 2 * k, my, 5 * k, k, 0xFF2050E0);
+            Fill(img, W, mx, my - 2 * k, k, 5 * k, 0xFF2050E0);
+        }
+        Png.Save(path, img, W, H);
+    }
+
+    private static void Fill(uint[] img, int W, int x, int y, int w, int h, uint col)
+    {
+        int H = img.Length / W;
+        for (int yy = Math.Max(0, y); yy < Math.Min(H, y + h); yy++)
+            for (int xx = Math.Max(0, x); xx < Math.Min(W, x + w); xx++)
+                img[yy * W + xx] = col;
     }
 
     public static void Houses(string path)

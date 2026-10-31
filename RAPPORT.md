@@ -78,7 +78,9 @@ servent à la compter).
 - **Près du bas de l'écran** : son corps ne sort plus par le bas, il est poussé sur le côté et s'accroche de travers.
   Si le pointeur est vraiment trop bas, il lâche et retombe debout ; il ne saute plus attraper un pointeur trop bas.
 - **Bras vers le pointeur**, en mode normal aussi : quand le pointeur passe au-dessus de lui, il lève les bras, qui
-  pointent vers le curseur (dessinés devant le corps, avec leur contour), puis saute souvent l'attraper.
+  pointent vers le curseur (dessinés devant le corps, avec leur contour), puis saute souvent l'attraper. Pointeur
+  au-dessus de lui : chaque bras se lève de son côté, sans passer devant la tête. Pointeur sur le côté : les deux bras
+  le pointent, celui de l'autre côté passe devant le corps (sous l'œil).
 - **Escalade du côté des fenêtres** : il va au bord d'une fenêtre proche, s'accroche à son côté (en sautant si le bas
   est trop haut), grimpe en suivant la fenêtre si elle bouge, puis se hisse sur le dessus.
 - **Caresses** : clic droit maintenu sur lui et va-et-vient : il s'assoit, ferme les yeux de bonheur, rougit,
@@ -148,6 +150,10 @@ quand il est caché), et la sortie audio se ferme après 3 s de silence.
   8 s au plus après la fin de son temps pendu si on le balance encore.
 - **Pointeur au-dessus de lui (mode normal)** : 45 % du temps il saute tout de suite l'attraper ; sinon il lève les
   bras vers lui et saute 1 à 2,6 s plus tard si le pointeur reste là. Énervé, il saute toujours.
+- **Bras qui pointent** : 7 à 8 pixels d'art (ils en faisaient 12 à 13). Un bras levé de son côté penche d'au moins 17°
+  vers l'extérieur. Un bras passe devant le corps quand le pointeur, vu de son épaule, est à plus de 65° de la verticale
+  (il revient de son côté sous 55°, pour ne pas hésiter à la limite) ; il part alors d'une épaule plus basse, l'ancienne,
+  pour passer sous l'œil.
 - **Caresses** : un aller ou un retour sur son corps compte comme une caresse ; un cœur toutes les 0,4 à 0,75 s, un
   ronronnement par seconde au plus ; 8 caresses calment un Pet énervé. Un simple clic droit sans bouger ne fait rien
   (et n'ouvre aucun menu).

@@ -104,11 +104,23 @@ internal sealed partial class Pet
     {
         if (!Physical || State == St.Air) return;
         double sx = X, sy = Y;
-        app.Cursor.FakeUntil = now0 + 5;
+        // (instant, écart en largeurs de corps, hauteur au-dessus des pieds en hauteurs de Pet) : au-dessus de sa tête,
+        // d'un côté à l'autre, puis plus bas sur chaque côté
+        (double t, double dx, double up)[] keys =
+        {
+            (0.0, 1.0, 2.3), (0.8, 1.0, 2.3), (2.3, 0.0, 1.5), (3.8, -1.0, 2.3),
+            (4.6, -2.0, 1.0), (5.6, -2.0, 1.0), (6.6, 0.0, 1.6), (7.6, 2.0, 1.0),
+        };
+        app.Cursor.FakeUntil = now0 + 9;
         app.Cursor.Fake = t =>
         {
-            double u = MathX.Clamp((t - now0 - 0.8) / 3.0, 0, 1);
-            return (sx + BodyW * (1.0 - 2.0 * u), sy - HH * (2.3 - 0.8 * Math.Sin(u * Math.PI)));
+            double u = t - now0;
+            int i = 0;
+            while (i < keys.Length - 1 && u > keys[i + 1].t) i++;
+            var a = keys[i];
+            var b = keys[Math.Min(i + 1, keys.Length - 1)];
+            double k = b.t > a.t ? MathX.SmoothStep(MathX.Clamp((u - a.t) / (b.t - a.t), 0, 1)) : 0;
+            return (sx + BodyW * MathX.Lerp(a.dx, b.dx, k), sy - HH * MathX.Lerp(a.up, b.up, k));
         };
         app.Cursor.Update(now0);
         StartReachUp(now0);
