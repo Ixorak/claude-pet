@@ -24,6 +24,13 @@ internal sealed partial class Pet
             case St.Stunned: p = StunPose(); break;
             case St.GetUp: p = GetUpPose(); break;
             case St.Dragged: p = DragPose(); break;
+            case St.ExitDoor:
+            case St.HomeJump:
+            case St.EnterDoor:
+            case St.Dig:
+            case St.Emerge:
+                p = HomePose(out clipY);
+                break;
             default: p = IdlePose(); break;
         }
         p = ExtraPose(p, ref clipY);

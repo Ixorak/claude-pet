@@ -22,7 +22,7 @@ internal sealed partial class Pet
 
     private partial void OnLanded() { }
 
-    private partial bool CanBeGrabbed() => State != St.Hidden;
+    private partial bool CanBeGrabbed() => (Physical || State == St.Dragged) && !homeBound;
 
     private partial void OnClick(double cx, double cy, double now)
     {
@@ -30,6 +30,12 @@ internal sealed partial class Pet
     }
 
     private partial void OnReleased() { }
+
+    private partial void OnGoHomeStarted() { }
+
+    private partial void OnUnderground() { }
+
+    private partial void OnHiddenAll() { }
 
     private partial ClaudePet.Art.PetPose ExtraPose(ClaudePet.Art.PetPose p, ref double clipY) => p;
 

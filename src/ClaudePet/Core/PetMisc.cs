@@ -10,7 +10,7 @@ internal sealed partial class Pet
     {
         Scr = Desk.At(X, Y - HH * 0.5) ?? Desk.Nearest(X, Y - HH * 0.5);
         Scale = TargetScale(Scr);
-        if (State == St.Dragged) return;
+        if (!Physical) return;
         if (!FreeAt(X, Y))
         {
             Resolve();
@@ -22,9 +22,6 @@ internal sealed partial class Pet
     {
         if (State == St.Walk && !running) speed = app.Cfg.Calm ? BodyW * 0.25 : BodyW * 0.55;
     }
-
-    /// <summary>Rentrer à la maison (étape 1 : on quitte simplement).</summary>
-    public void GoHome() => app.Quit();
 
     public void Debug_Throw(double vx, double vy)
     {

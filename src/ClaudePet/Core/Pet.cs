@@ -18,6 +18,12 @@ internal enum St : byte
     Stunned,     // sonné (étoiles)
     GetUp,       // se relève
     Dragged,     // tenu par la souris
+    ExitDoor,    // sort par la porte de la maison (tout petit, puis grandit)
+    HomeJump,    // saute vers la porte de la maison en rétrécissant
+    EnterDoor,   // rentre dans la porte
+    Dig,         // creuse dans le sol
+    Underground, // sous terre (invisible), en chemin
+    Emerge,      // sort du sol
 }
 
 internal enum AirKind : byte { Fall, Thrown, Jump, Hop }
@@ -100,10 +106,17 @@ internal sealed partial class Pet
         UpdateScale(dt);
         T += dt;
         if (pressing && !dragging && now - pressT > 0.2) StartDrag();
+        if (homeBound) UpdateHomeBound(now);
 
         switch (State)
         {
             case St.Hidden: break;
+            case St.ExitDoor: UpdateExitDoor(dt); break;
+            case St.HomeJump: UpdateHomeJump(dt); break;
+            case St.EnterDoor: UpdateEnterDoor(dt); break;
+            case St.Dig: UpdateDig(dt); break;
+            case St.Underground: UpdateUnderground(dt); break;
+            case St.Emerge: UpdateEmerge(dt); break;
             case St.Idle: UpdateIdle(dt); break;
             case St.Walk: UpdateWalk(dt); break;
             case St.Sit:
@@ -147,6 +160,7 @@ internal sealed partial class Pet
         switch (State)
         {
             case St.Hidden: return 1.0;
+            case St.Underground: return 1.0 / 20;
             case St.Idle:
             case St.Sit:
             case St.Look:
@@ -167,6 +181,7 @@ internal sealed partial class Pet
 
     private void UpdateScale(double dt)
     {
+        if (State == St.Underground) return;
         var s = Desk.At(X, Y - HH * 0.5) ?? Desk.Nearest(X, Y - HH * 0.5);
         Scr = s;
         double target = TargetScale(s);
@@ -174,7 +189,7 @@ internal sealed partial class Pet
         else
         {
             Scale += (target - Scale) * Math.Min(1, dt * 9);
-            if (State != St.Dragged && State != St.Hidden && !FreeAt(X, Y)) Resolve();
+            if (Physical && !FreeAt(X, Y)) Resolve();
         }
     }
 
@@ -182,8 +197,15 @@ internal sealed partial class Pet
     public void OnSizeChanged()
     {
         Scale = TargetScale(Scr);
-        if (State != St.Hidden && State != St.Dragged) Resolve();
+        if (Physical) Resolve();
     }
+
+    /// <summary>Vrai quand Pet est soumis aux collisions (pas tenu, pas caché, pas dans une animation de porte ou de terrier).</summary>
+    public bool Physical => State switch
+    {
+        St.Hidden or St.Dragged or St.ExitDoor or St.HomeJump or St.EnterDoor or St.Dig or St.Underground or St.Emerge => false,
+        _ => true,
+    };
 
     // ------------------------------------------------------------------ collisions
 

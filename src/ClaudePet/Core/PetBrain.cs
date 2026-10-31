@@ -102,6 +102,7 @@ internal sealed partial class Pet
 
     private void ArriveWalk()
     {
+        if (HomeArrived()) return;
         Enter(St.Idle, app.Cfg.Calm ? Rng.Range(1.5, 4.0) : Rng.Range(0.4, 2.0));
     }
 
