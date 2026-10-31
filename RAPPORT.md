@@ -87,8 +87,21 @@ servent à la compter).
   ronronne et fait des cœurs. Quelques caresses calment aussi un Pet énervé.
 - **Mottes de terre** : quand il creuse, une motte de terre au début du trou et une à la sortie ; elles disparaissent
   au bout d'environ 9 s.
+- **Yeux** : le petit reflet blanc est toujours là. Il cligne des yeux toutes les 2,5 à 5,5 s, parfois deux fois de suite
+  (il clignait déjà, mais en 0,11 s : trop vite pour qu'on le voie).
+- **Humeur** : quand il ne fait rien de spécial, sa bouche montre son humeur, qui dépend des caresses : il sourit juste
+  après, il a une petite bouche droite ensuite, et il est triste quand ça fait longtemps.
+- **Petites occupations** : boire un café (la tasse fume, il boit des gorgées), taper sur son ordinateur (des rafales de
+  frappe, des pauses pour réfléchir, de petites étoiles orange qui montent), écouter de la musique au casque (il bat la
+  mesure, danse un peu, des notes s'envolent), lire un livre (ses yeux suivent les lignes, il tourne les pages, rit
+  parfois), souffler des bulles de savon.
+- **Assis sur le pointeur** : il sourit tout le temps et balance les jambes comme un enfant ; de temps en temps il ferme
+  les yeux de bonheur et fredonne une note.
+- **Il grimpe plus souvent** : il escalade les côtés d'une page agrandie (une fenêtre maximisée), même quand le sol
+  continue sur l'écran voisin ; il saute sur les fenêtres et escalade leurs côtés plus souvent, et quand il n'y a rien
+  à portée, il essaie une autre escalade au lieu de rester en bas.
 
-**Performances** (mesurées sur le PC d'Ixorak, 20 cœurs logiques) : assis, 0,16 % d'un cœur ; endormi, 0,47 % ; caché ou
+**Performances** (mesurées sur le PC d'Ixorak, 20 cœurs logiques) : assis, 0,16 à 0,19 % d'un cœur ; endormi, 0,47 % ; caché ou
 Ixorak absent, presque rien ; en mouvement, moins de 1 % d'un cœur ; environ 30 Mo de mémoire. La boucle ne tourne jamais
 à fond : elle se règle selon ce que fait Pet (60 images/s en mouvement, 4 à 20 quand il est calme, une par seconde
 quand il est caché), et la sortie audio se ferme après 3 s de silence.
@@ -158,6 +171,19 @@ quand il est caché), et la sortie audio se ferme après 3 s de silence.
   ronronnement par seconde au plus ; 8 caresses calment un Pet énervé. Un simple clic droit sans bouger ne fait rien
   (et n'ouvre aucun menu).
 - **Mottes de terre** : 9 s en tout, effacement compris (sur un écran en plein écran, celle du départ part avec lui).
+- **Humeur** : content pendant 15 min après une caresse (une seule suffit), moyen jusqu'à 1 h 30, triste ensuite.
+  Le temps est compté comme la faim (PC allumé, sans la veille) et gardé dans la config ; au premier lancement il est
+  « moyen ». Pas de bouche d'humeur quand il dort. Bouches : sourire, petit trait, sourire à l'envers.
+- **Clignement** : paupières à moitié, fermées, à moitié (0,2 s), toutes les 2,5 à 5,5 s, deux fois de suite une fois
+  sur cinq ou six.
+- **Occupations** : café 10 à 18 s, ordinateur 14 à 26 s, musique 10 à 18 s, lecture 12 à 22 s, bulles 8 à 14 s ;
+  environ une décision sur cinq en mode normal, un peu plus en mode calme (toutes y sont permises), moins quand il a
+  faim. Un clic, un glisser, une baie, les bulles d'options ou le retour à la maison les interrompent. L'ordinateur
+  porte une petite étoile orange au dos de l'écran.
+- **Escalade des pages** : une page, c'est une fenêtre agrandie qui couvre l'écran où il est ; il monte de 1,5 à 8 fois
+  sa hauteur, puis saute, lâche prise ou redescend, comme pour un mur. Si la page est réduite ou fermée pendant qu'il
+  grimpe, il tombe. Nouveaux poids de ses décisions en mode normal : marcher 40 → 28, sauter sur une fenêtre 9 → 14,
+  grimper 4 → 12, escalader le côté d'une fenêtre 7 → 12, redescendre d'une fenêtre 7 → 5.
 - **Sons** : synthèse 8-bit (ondes triangle, carrée, sinus et dent de scie avec enveloppes douces, petits glissandos,
   bruit filtré), mixés sur un fil audio à part (waveOut).
 - **Installateur** : Inno Setup 6, installation dans `%LocalAppData%\Programs\Claude Pet` sans droits administrateur,
@@ -168,7 +194,9 @@ quand il est caché), et la sortie audio se ferme après 3 s de silence.
   (une autre icône comme maison), `--cmd "<commande>"` (envoie une commande à Pet qui tourne : `state`, `feed`,
   `hunger 3.5`, `windows`, `fs 1 on`, `stats`, `debug climb`, `debug climbwin`, et des tests avec un pointeur
   imaginaire qui ne touchent pas à la vraie souris : `debug swingtest`, `debug swinglow`, `debug reachtest`,
-  `debug pettest`). Sans ces options, pas de journal, et Pet vit sa vie.
+  `debug pettest`, `debug sittest` ; ses occupations : `debug coffee`, `debug laptop`, `debug music`, `debug read`,
+  `debug bubbles` ; son humeur : `debug happy`, `debug meh`, `debug sad` ; `debug climbpage`). Sans ces options, pas
+  de journal, et Pet vit sa vie.
 - **Fichiers hors du projet** (créés par moi pour les tests, à supprimer quand tu veux) : le raccourci **PetDev** sur ton
   bureau (il lance la version de développement avec `--house PetDev`) ; une ligne `/Pet/` dans
   `F:\protos\.git\info\exclude` (pour que le dépôt de `F:\protos` ignore ce dossier, purement local). Les lancements faits
@@ -202,3 +230,6 @@ avant de recompiler.
 7. `Étape 7 : installateur, build et rapport`
 8. `Balancement, bras vers le pointeur, escalade des fenêtres, caresses, mottes de terre` (demandes d'Ixorak après
    la livraison)
+9. `Bras qui pointent : plus courts, de leur côté quand le pointeur est au-dessus`
+10. `Humeur, clignements, occupations (café, ordinateur, musique, lecture, bulles), jambes qui balancent, escalade des
+    pages`

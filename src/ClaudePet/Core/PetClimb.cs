@@ -22,6 +22,13 @@ internal sealed partial class Pet
     private bool climbWinWalk, climbWinJump;
     private double climbWinGrabY;
 
+    // Escalade du côté d'une page agrandie (le bord de l'écran qu'elle couvre, même si un autre écran continue à côté)
+    private bool climbPage;               // il grimpe au côté d'une page (un mur sans obstacle)
+    private double climbPageX;            // le bord de la page
+    private bool wantPageClimb;           // il marche vers le côté d'une page pour l'escalader
+    private int pageClimbSide;
+    private double pageClimbX;
+
     // Tunnel sous un écran en plein écran
     private bool tunnelWalk;
     private Screen? tunnelTarget;
@@ -40,6 +47,7 @@ internal sealed partial class Pet
         climbSide = side;
         climbMode = 0;
         climbDist = 0;
+        climbPage = false;
         climbTargetY = Y - Rng.Range(HH * 1.2, Math.Min(room, HH * 9));
         // une fenêtre près de ce mur, plus haut ? il monte jusqu'à sa hauteur pour sauter dessus
         climbForWindow = false;
@@ -60,7 +68,19 @@ internal sealed partial class Pet
     {
         Facing = climbSide;
         if (climbHwnd != 0) { UpdateWindowClimb(dt); return; }
-        if (FreeAt(X + climbSide * 3, Y))
+        if (climbPage)
+        {
+            // le côté d'une page : la page a disparu (réduite, fermée) ? il tombe
+            if (!PageCovers(Scr))
+            {
+                climbPage = false;
+                app.Play(Snd.Fall, 0.4);
+                StartFall(-climbSide * BodyW * 0.25, 0, AirKind.Fall);
+                return;
+            }
+            X = climbPageX - climbSide * (HW + 1);
+        }
+        else if (FreeAt(X + climbSide * 3, Y))
         {
             // le mur s'arrête (le haut d'une marche entre deux écrans) : il se hisse dessus
             StartFall(climbSide * BodyW * 0.8, -Math.Sqrt(2 * G * HH * 0.45), AirKind.Jump);
@@ -222,6 +242,7 @@ internal sealed partial class Pet
         climbMode = 0;
         climbDist = 0;
         climbForWindow = false;
+        climbPage = false;
         VX = 0; VY = 0;
         app.Play(Snd.Grab, 0.35);
         Enter(St.Climb);
@@ -279,7 +300,7 @@ internal sealed partial class Pet
         StartFall(vx, vy0, AirKind.Jump);
     }
 
-    /// <summary>Part vers le mur le plus proche pour l'escalader.</summary>
+    /// <summary>Part vers le mur le plus proche (ou le côté d'une page agrandie) pour l'escalader.</summary>
     private bool GoClimb()
     {
         if (OnWindow) return false;
@@ -287,11 +308,91 @@ internal sealed partial class Pet
         FloorRange(BodyW * 12, out double minX, out double maxX);
         double step = Math.Max(4, HW * 0.5);
         bool wallL = !FreeAt(minX - step, Y), wallR = !FreeAt(maxX + step, Y);
+        if ((!(wallL || wallR) || Rng.Chance(0.5)) && GoClimbPage(minX, maxX)) return true;
         if (!wallL && !wallR) return false;
         int dir = wallL && wallR ? (X - minX < maxX - X ? -1 : 1) : wallL ? -1 : 1;
         double target = dir < 0 ? minX - BodyW : maxX + BodyW;
         WalkTo(target, run: Math.Abs(target - X) > BodyW * 5 || Rng.Chance(0.3));
         wantClimb = true;
+        return true;
+    }
+
+    // ------------------------------------------------------------------ escalader le côté d'une page agrandie
+
+    /// <summary>
+    /// L'écran est couvert par une page agrandie (une fenêtre maximisée) : ses côtés sont les bords de l'écran,
+    /// que Pet peut escalader même quand le sol continue sur l'écran voisin.
+    /// </summary>
+    private bool PageCovers(Screen s)
+    {
+        var w = s.Work;
+        foreach (var win in Wins.Windows)
+            if (win.Maximized && win.R.Left <= w.Left + 8 && win.R.Right >= w.Right - 8
+                && win.R.Top <= w.Top + 8 && win.R.Bottom >= w.Bottom - 8)
+                return true;
+        return false;
+    }
+
+    /// <summary>Le côté de la page agrandie de son écran qu'il peut rejoindre à pied (entre minX et maxX).</summary>
+    private bool FindPageEdge(double minX, double maxX, out double edgeX, out int side)
+    {
+        edgeX = 0; side = 0;
+        if (app.Cfg.Calm || app.Hungry || State == St.Hidden || OnWindow || !PageCovers(Scr)) return false;
+        var w = Scr.Work;
+        if (Y - (w.Top + HH + 8) < HH * 1.5) return false;   // pas la place de monter
+        double best = double.MaxValue;
+        for (int s = -1; s <= 1; s += 2)
+        {
+            double ex = s < 0 ? w.Left : w.Right;
+            double standX = ex - s * (HW + 1);
+            if (standX < minX - 1 || standX > maxX + 1) continue;   // il ne peut pas y aller à pied
+            double d = Math.Abs(standX - X) * Rng.Range(0.6, 1.4);  // plutôt le plus proche
+            if (d < best) { best = d; edgeX = ex; side = s; }
+        }
+        return side != 0;
+    }
+
+    /// <summary>Part vers un côté de la page agrandie de son écran pour l'escalader.</summary>
+    private bool GoClimbPage(double minX, double maxX)
+    {
+        app.ScanWindowsNow();
+        if (!FindPageEdge(minX, maxX, out double edgeX, out int edgeSide)) return false;
+        double standX = edgeX - edgeSide * (HW + 1);
+        pageClimbSide = edgeSide;
+        pageClimbX = edgeX;
+        Log.Write($"Escalade d'une page : il va à son côté {(edgeSide > 0 ? "droit" : "gauche")} (x={edgeX:F0})");
+        if (Math.Abs(standX - X) < 2) { wantPageClimb = true; return PageClimbArrived(); }
+        WalkTo(standX, run: Math.Abs(standX - X) > BodyW * 5 || Rng.Chance(0.3));
+        wantPageClimb = true; // après WalkTo, qui l'efface
+        return true;
+    }
+
+    /// <summary>Arrivé au pied du côté de la page : il commence à grimper.</summary>
+    private bool PageClimbArrived()
+    {
+        if (!wantPageClimb) return false;
+        wantPageClimb = false;
+        double standX = pageClimbX - pageClimbSide * (HW + 1);
+        if (Math.Abs(X - standX) > BodyW * 0.7 || OnWindow) return false;
+        app.ScanWindowsNow();
+        if (!PageCovers(Scr) || app.Cfg.Calm || app.Hungry || app.FeedingActive || homeBound) return false;
+        double room = Y - (Scr.Work.Top + HH + 8);
+        if (room < HH * 1.5) return false;
+        X = standX;
+        if (!FreeAt(X, Y)) return false;
+        climbSide = pageClimbSide;
+        climbMode = 0;
+        climbDist = 0;
+        climbForWindow = false;
+        climbPage = true;
+        climbPageX = pageClimbX;
+        climbTargetY = Y - Rng.Range(HH * 1.5, Math.Min(room, HH * 8));
+        LeaveSurface();
+        VX = 0; VY = 0;
+        Facing = climbSide;
+        app.Play(Snd.Grab, 0.35);
+        Log.Write("Escalade d'une page : il grimpe");
+        Enter(St.Climb);
         return true;
     }
 

@@ -35,6 +35,11 @@ internal enum St : byte
     Eat,         // mâche la baie
     Climb,       // grimpe à un bord de l'écran ou au côté d'une fenêtre
     Petted,      // se fait caresser (clic droit et va-et-vient sur lui)
+    Coffee,      // boit une tasse de café, assis
+    Laptop,      // tape sur son ordinateur portable
+    Music,       // écoute de la musique avec son casque (et danse un peu)
+    Read,        // lit un livre, assis
+    Bubbles,     // souffle des bulles de savon
 }
 
 internal enum AirKind : byte { Fall, Thrown, Jump, Hop, Grab, Wild }
@@ -44,7 +49,7 @@ internal enum Contact : byte { None, Floor, Ceiling, Platform }
 internal enum Snd : byte
 {
     Exit, Enter, Step, Jump, Bounce, Tap, Angry, Stars, Grab, Fall, MouthOpen, Eat, Bubble, Snore, Dig, Emerge,
-    Click, Land, Yawn, Happy, Whoosh, Purr,
+    Click, Land, Yawn, Happy, Whoosh, Purr, Sip, Type, Page,
 }
 
 /// <summary>Pet : position, physique, états. Le cerveau est dans PetBrain.cs, les poses dans PetPoses.cs.</summary>
@@ -128,6 +133,11 @@ internal sealed partial class Pet
             case St.Eat: UpdateEat(dt, now); break;
             case St.Climb: UpdateClimb(dt, now); break;
             case St.Petted: UpdatePetted(dt, now); break;
+            case St.Coffee: UpdateCoffee(dt, now); break;
+            case St.Laptop: UpdateLaptop(dt, now); break;
+            case St.Music: UpdateMusic(dt, now); break;
+            case St.Read: UpdateRead(dt, now); break;
+            case St.Bubbles: UpdateBubbles(dt, now); break;
             case St.Hidden: break;
             case St.ExitDoor: UpdateExitDoor(dt); break;
             case St.HomeJump: UpdateHomeJump(dt); break;
@@ -194,6 +204,10 @@ internal sealed partial class Pet
         double d = BaseInterval();
         // sur une fenêtre : la suivre de près quand elle bouge
         if (supportHwnd != 0) d = Math.Min(d, SupportMovedRecently ? 1.0 / 60 : 0.1);
+        // un clignement en cours ou tout proche : ne pas le manquer
+        double now = Clock.Now;
+        if (State is not (St.Sleep or St.Hidden or St.Underground) && (now < blinkEnd || nextBlink - now < d))
+            d = Math.Min(d, Math.Max(0.02, Math.Min(1.0 / 30, nextBlink - now)));
         return d;
     }
 
@@ -207,7 +221,13 @@ internal sealed partial class Pet
             case St.Idle:
             case St.Sit:
             case St.Look:
+            case St.Coffee:
+            case St.Laptop:
+            case St.Read:
                 return Angry || clickPending ? 1.0 / 30 : 1.0 / 20;
+            case St.Music:
+            case St.Bubbles:
+                return 1.0 / 30;
             case St.Stunned:
             case St.Tapped:
             case St.ReachUp:
@@ -555,17 +575,30 @@ internal sealed partial class Pet
         return MathX.Hypot(app.Cursor.X - hx, app.Cursor.Y - (hy + HH * 0.3)) < radius;
     }
 
+    // Un clignement : paupières à moitié, fermées, à moitié (0,2 s en tout).
+    private const double BlinkLen = 0.2;
+    private double blinkStart = -10;
+
     private void UpdateBlink(double now)
     {
         if (now >= nextBlink)
         {
-            blinkEnd = now + 0.11;
-            nextBlink = now + Rng.Range(2.0, 6.0);
-            if (Rng.Chance(0.15)) nextBlink = now + 0.25; // double clignement
+            blinkStart = now;
+            blinkEnd = now + BlinkLen;
+            nextBlink = now + Rng.Range(2.5, 5.5);
+            if (Rng.Chance(0.18)) nextBlink = now + BlinkLen + 0.12; // double clignement
         }
     }
 
-    private bool Blinking => Clock.Now < blinkEnd;
+    /// <summary>Les yeux pendant un clignement (inchangés en dehors, ou s'ils ne sont pas ouverts).</summary>
+    private Eyes BlinkEyes(Eyes e)
+    {
+        double t = Clock.Now - blinkStart;
+        if (t < 0 || t >= BlinkLen || e is not (Eyes.Open or Eyes.Wide or Eyes.Half or Eyes.Angry)) return e;
+        bool closed = t >= BlinkLen * 0.25 && t < BlinkLen * 0.75;
+        if (closed) return Eyes.Closed;
+        return e == Eyes.Half ? Eyes.Closed : Eyes.Half;
+    }
 
     // ------------------------------------------------------------------ souris
 

@@ -234,6 +234,30 @@ internal static class Sfx
                 }
                 return Synth.Soft(b, 900);
             }
+
+            case Snd.Sip:
+            {
+                // une gorgée de café : un petit « slurp » (souffle qui monte), puis un « glou » grave
+                b = Synth.Buf(0.42);
+                for (int i = 0; i < 5; i++)
+                    Synth.Noise(b, i * 0.035, 0.05, 0.05 + 0.012 * i, 9000, attack: 0.01, release: 0.03, cutoff: 900 + 500 * i);
+                Synth.Tone(b, 0.24, 0.12, 330 * p, 190 * p, Wave.Sine, 0.22, attack: 0.01, release: 0.06);
+                return Synth.Soft(b, 4000);
+            }
+
+            case Snd.Page:
+                // une page qu'on tourne : un frottement de papier qui descend
+                b = Synth.Buf(0.22);
+                Synth.Noise(b, 0, 0.09, 0.09, 14000, attack: 0.02, release: 0.05, cutoff: 5200);
+                Synth.Noise(b, 0.07, 0.12, 0.07, 9000, attack: 0.01, release: 0.08, cutoff: 2600);
+                return b;
+
+            case Snd.Type:
+                // une touche du clavier : un clic très court
+                b = Synth.Buf(0.04);
+                Synth.Noise(b, 0, 0.018, 0.16, 12000, attack: 0.001, release: 0.012, cutoff: 3500);
+                Synth.Tone(b, 0, 0.02, 1700 * p, 1400 * p, Wave.Triangle, 0.05, attack: 0.001, release: 0.012);
+                return Synth.Soft(b, 6000);
         }
         return Synth.Buf(0.01);
     }

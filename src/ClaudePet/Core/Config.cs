@@ -14,6 +14,8 @@ internal sealed class ConfigData
     public int Size { get; set; } = 9;
     /// <summary>Temps « PC allumé » depuis le dernier repas, en secondes (la jauge de faim).</summary>
     public double HungerSeconds { get; set; }
+    /// <summary>Temps « PC allumé » depuis la dernière caresse, en secondes (son humeur). Au départ : moyen.</summary>
+    public double LonelySeconds { get; set; } = 20 * 60;
     /// <summary>Repère de temps allumé (sans veille) à la dernière sauvegarde.</summary>
     public double LastUnbiased { get; set; }
     /// <summary>Repère du démarrage de Windows à la dernière sauvegarde.</summary>
@@ -61,6 +63,7 @@ internal sealed class Config
         D.Volume = Math.Clamp(D.Volume, 0, 100);
         D.Size = Math.Clamp(D.Size == 0 ? DefaultSize : D.Size, MinSize, MaxSize);
         if (double.IsNaN(D.HungerSeconds) || D.HungerSeconds < 0) D.HungerSeconds = 0;
+        if (double.IsNaN(D.LonelySeconds) || D.LonelySeconds < 0) D.LonelySeconds = 0;
     }
 
     /// <summary>Demande une sauvegarde : elle sera écrite au plus tard une seconde après (voir <see cref="Flush"/>).</summary>

@@ -24,13 +24,19 @@ internal static class Pal
 }
 
 internal enum Eyes : byte { Open, Closed, Happy, Wide, Dizzy, Angry, Squeeze, Half, Swirl }
-internal enum Mouth : byte { None, Smile, SmallO, Open, Wide, Frown, Yawn, Chew, Grin }
-internal enum Legs : byte { Stand, Sit, Dangle, Tuck, None, Spread, Kneel }
+internal enum Mouth : byte { None, Smile, SmallO, Open, Wide, Frown, Yawn, Chew, Grin, Flat }
+/// <summary>
+/// Objet qu'il tient : une tasse de café, son ordinateur portable (posé devant lui), un casque audio,
+/// un livre ouvert, une baguette à bulles.
+/// </summary>
+internal enum Prop : byte { None, Mug, Laptop, Headphones, Book, Wand }
+/// <summary>Jambes. Swing : elles pendent et se balancent (Kick = la phase, de 0 à 3), comme un enfant assis.</summary>
+internal enum Legs : byte { Stand, Sit, Dangle, Tuck, None, Spread, Kneel, Swing }
 /// <summary>
 /// Formes de bras. Aim : bras tendu dans une direction, la main à (DX, DY) de l'épaule ;
 /// (RX, RY) déplace l'épaule (x positif : vers le corps).
 /// </summary>
-internal enum ArmK : byte { Side, SideUp, Raised, Up, Down, Hold, Out, Reach, Dig, Aim }
+internal enum ArmK : byte { Side, SideUp, Raised, Up, Down, Hold, Out, Reach, Dig, Aim, Hidden }
 
 internal readonly record struct Arm(ArmK Kind, sbyte DX = 0, sbyte DY = 0, sbyte RX = 0, sbyte RY = 0)
 {
@@ -42,6 +48,8 @@ internal readonly record struct Arm(ArmK Kind, sbyte DX = 0, sbyte DY = 0, sbyte
     public static readonly Arm Hold = new(ArmK.Hold);
     public static readonly Arm Out = new(ArmK.Out);
     public static readonly Arm Reach = new(ArmK.Reach);
+    /// <summary>Pas dessiné (ses mains sont dessinées avec l'objet qu'il tient).</summary>
+    public static readonly Arm Hidden = new(ArmK.Hidden);
     public Arm Shift(int dx, int dy) => this with { DX = (sbyte)(DX + dx), DY = (sbyte)(DY + dy) };
 }
 
@@ -56,6 +64,12 @@ internal record struct PetPose
     public Mouth Mouth;
     public bool Blush, Brows;
     public float Red;
+    /// <summary>
+    /// Objet tenu. Tasse : <see cref="PropF"/> = hauteur (0 sur les genoux, 1 à mi-chemin, 2 à la bouche).
+    /// Ordinateur : <see cref="PropF"/> = écran (0 fermé, 1 à moitié, 2 ouvert), <see cref="PropG"/> = mains qui tapent (0 à 3).
+    /// </summary>
+    public Prop Prop;
+    public int PropF, PropG;
 
     public static PetPose Stand => new()
     {
@@ -117,6 +131,203 @@ internal static class PetPainter
         DrawFace(c, p, left, right, top, body);
         if (frontL) DrawArmFront(c, p.L, left, right, top, false, body);
         if (frontR) DrawArmFront(c, p.R, left, right, top, true, body);
+        switch (p.Prop)
+        {
+            case Prop.Mug: DrawMug(c, p, left, right, top, body); break;
+            case Prop.Laptop: DrawLaptop(c, p, left, right, top, body); break;
+            case Prop.Headphones: DrawHeadphones(c, left, right, top); break;
+            case Prop.Book: DrawBook(c, p, left, right, body); break;
+            case Prop.Wand: DrawWand(c, p, left, right, top, body); break;
+        }
+    }
+
+    private static readonly uint PhoneBand = Col.Rgb(0x8A, 0x92, 0xA0), PhoneCup = Col.Rgb(0x48, 0x4F, 0x5D),
+        PhoneDot = Col.Rgb(0xF0, 0x9A, 0x70);
+
+    /// <summary>Un casque audio : l'arceau par-dessus la tête, un écouteur de chaque côté.</summary>
+    private static void DrawHeadphones(ArtCanvas c, int left, int right, int top)
+    {
+        (int x, int y)[] arc =
+        {
+            (left - 2, top + 3), (left - 2, top), (left, top - 2), (right, top - 2), (right + 2, top), (right + 2, top + 3),
+        };
+        for (int i = 0; i + 1 < arc.Length; i++) Stroke(c, arc[i].x, arc[i].y, arc[i + 1].x, arc[i + 1].y, 3, Slate, int.MinValue);
+        for (int i = 0; i + 1 < arc.Length; i++) Stroke(c, arc[i].x, arc[i].y, arc[i + 1].x, arc[i + 1].y, 1, PhoneBand, int.MinValue);
+        int mir = left + right;
+        for (int side = 0; side < 2; side++)
+        {
+            void Put(int x, int y, uint col) => c.Set(side == 0 ? x : mir - x, y, col);
+            int x0 = left - 4, x1 = left, y0 = top + 3, y1 = top + 9;
+            for (int x = x0 + 1; x < x1; x++) { Put(x, y0, Slate); Put(x, y1, Slate); }
+            for (int y = y0 + 1; y < y1; y++) { Put(x0, y, Slate); Put(x1, y, Slate); }
+            for (int y = y0 + 1; y < y1; y++)
+                for (int x = x0 + 1; x < x1; x++) Put(x, y, PhoneCup);
+            for (int y = y0 + 2; y <= y0 + 4; y++) Put(x0 + 2, y, PhoneDot);
+        }
+    }
+
+    private static readonly uint Page = Col.Rgb(0xF7, 0xF3, 0xEA), Ink = Col.Rgb(0xA9, 0xA3, 0x9A),
+        BookCover = Col.Rgb(0x3E, 0x7C, 0xB1);
+
+    // un livre ouvert, posé devant lui : deux pages, la reliure au milieu, la couverture en bas
+    private static readonly string[] BookArt =
+    {
+        ".KKKKK..KKKKK.",
+        "KWWWWWKKWWWWWK",
+        "KWsssWKKWsssWK",
+        "KWWWWWKKWWWWWK",
+        "KWssWWKKWssWWK",
+        "KWWWWWKKWWWWWK",
+        "KccccccccccccK",
+        ".KKKKKKKKKKKK.",
+    };
+
+    /// <summary>Le livre ouvert sur ses genoux ; <see cref="PetPose.PropF"/> = 1 : une page en train de tourner.</summary>
+    private static void DrawBook(ArtCanvas c, in PetPose p, int left, int right, uint body)
+    {
+        int bx = -7, by = p.BodyBottom - 3;
+        c.Sprite(bx, by, BookArt, ch => ch switch
+        {
+            'K' => Pal.Outline, 'W' => Page, 's' => Ink, 'c' => BookCover, _ => 0u,
+        });
+        if (p.PropF == 1)
+        {
+            // la page tourne : elle se dresse au-dessus de la reliure
+            for (int y = by - 4; y <= by; y++) { c.Set(-2, y, Pal.Outline); c.Set(1, y, Pal.Outline); }
+            c.Set(-1, by - 5, Pal.Outline); c.Set(0, by - 5, Pal.Outline);
+            for (int y = by - 4; y <= by; y++) { c.Set(-1, y, Page); c.Set(0, y, Page); }
+        }
+        int mir = left + right;
+        Paw(c, bx - 2, by + 3, body);
+        Paw(c, mir - (bx - 2) - 1, by + 3, body);
+    }
+
+    private static readonly uint Soap = Col.Rgb(0x8F, 0xE3, 0xFF), SoapFilm = Col.Rgb(0xD8, 0xF6, 0xFF);
+
+    /// <summary>
+    /// Une baguette à bulles devant sa bouche (l'anneau autour de la bouche, le manche jusqu'à sa main) ;
+    /// <see cref="PetPose.PropF"/> = 1 : un film de savon dans l'anneau, prêt à souffler.
+    /// </summary>
+    private static void DrawWand(ArtCanvas c, in PetPose p, int left, int right, int top, uint body)
+    {
+        int lx = Math.Clamp(p.LookX, -1, 1), ly = Math.Clamp(p.LookY, -1, 1);
+        int ml = (left + right - 1) / 2 + lx, my = top + 9 + ly;     // la bouche, comme dans DrawFace
+        if (p.PropF == 1)
+            for (int y = my - 1; y <= my + 2; y++)
+                for (int x = ml - 1; x <= ml + 2; x++) c.Set(x, y, SoapFilm);
+        for (int x = ml - 1; x <= ml + 2; x++) { c.Set(x, my - 2, Soap); c.Set(x, my + 3, Soap); }
+        for (int y = my - 1; y <= my + 2; y++) { c.Set(ml - 2, y, Soap); c.Set(ml + 3, y, Soap); }
+        if (p.PropF == 1) c.Set(ml + 1, my - 1, Pal.Shine);
+        Stroke(c, ml + 3, my + 3, ml + 6, my + 6, 1, Pal.Outline, int.MinValue); // le manche
+        Paw(c, ml + 6, my + 6, body);
+    }
+
+    /// <summary>L'anneau de la baguette (d'où partent les bulles), dans le dessin.</summary>
+    public static (int x, int y) WandRing(in PetPose p)
+    {
+        int bw = Math.Max(8, p.BodyW), bh = Math.Max(6, p.BodyH);
+        int left = -(bw / 2) + p.DX, right = left + bw - 1, top = p.BodyBottom - bh + 1;
+        int lx = Math.Clamp(p.LookX, -1, 1), ly = Math.Clamp(p.LookY, -1, 1);
+        return ((left + right - 1) / 2 + lx, top + 9 + ly);
+    }
+
+    // ------------------------------------------------------------------ objets
+
+    private static readonly uint MugWhite = Col.Rgb(0xF4, 0xEE, 0xE6), MugShine = Col.Rgb(0xFF, 0xFF, 0xFF),
+        Coffee = Col.Rgb(0x6E, 0x40, 0x27);
+
+    // la tasse (anse à droite) : liseré, café, porcelaine, reflet
+    private static readonly string[] MugArt =
+    {
+        "KKKKKK..",
+        "KccccK..",
+        "KWwwwKKK",
+        "KwwwwK.K",
+        "KwwwwK.K",
+        "KwwwwKKK",
+        ".KKKK...",
+    };
+
+    /// <summary>Coin haut gauche de la tasse dans le dessin (origine aux pieds).</summary>
+    private static (int x, int y) MugAt(in PetPose p, int left, int right, int top)
+    {
+        int lx = Math.Clamp(p.LookX, -1, 1), ly = Math.Clamp(p.LookY, -1, 1);
+        int ml = (left + right - 1) / 2 + lx, my = top + 9 + ly;     // la bouche, comme dans DrawFace
+        int dy = p.PropF switch { >= 2 => -3, 1 => -1, _ => 1 };
+        return (ml - 2, my + dy);
+    }
+
+    /// <summary>Le dessus de la tasse (d'où monte la vapeur), dans le dessin.</summary>
+    public static (int x, int y) MugTop(in PetPose p)
+    {
+        int bw = Math.Max(8, p.BodyW), bh = Math.Max(6, p.BodyH);
+        int left = -(bw / 2) + p.DX, right = left + bw - 1, top = p.BodyBottom - bh + 1;
+        var (x, y) = MugAt(p, left, right, top);
+        return (x + 3, y);
+    }
+
+    private static void DrawMug(ArtCanvas c, in PetPose p, int left, int right, int top, uint body)
+    {
+        var (x, y) = MugAt(p, left, right, top);
+        c.Sprite(x, y, MugArt, ch => ch switch
+        {
+            'K' => Pal.Outline, 'c' => Coffee, 'w' => MugWhite, 'W' => MugShine, _ => 0u,
+        });
+        // ses deux petites mains autour de la tasse (la droite tient l'anse)
+        Paw(c, x - 2, y + 3, body);
+        Paw(c, x + 6, y + 3, body);
+    }
+
+    /// <summary>Une petite main de 2 × 2 avec son liseré (coins arrondis).</summary>
+    private static void Paw(ArtCanvas c, int x, int y, uint body)
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            c.Set(x + i, y - 1, Pal.Outline); c.Set(x + i, y + 2, Pal.Outline);
+            c.Set(x - 1, y + i, Pal.Outline); c.Set(x + 2, y + i, Pal.Outline);
+        }
+        c.Rect(x, y, x + 1, y + 1, body);
+    }
+
+    private static readonly uint LidSilver = Col.Rgb(0xC9, 0xCE, 0xD6), LidShade = Col.Rgb(0xA7, 0xAE, 0xB9),
+        Keys = Col.Rgb(0x6B, 0x73, 0x80), Slate = Col.Rgb(0x2F, 0x34, 0x40);
+
+    // le logo au dos de l'écran : une petite étoile orange
+    private static readonly string[] SparkArt =
+    {
+        "..o..",
+        "o.o.o",
+        ".ooo.",
+        "o.o.o",
+        "..o..",
+    };
+
+    /// <summary>
+    /// L'ordinateur posé devant lui, vu de dos (écran tourné vers Pet, logo vers nous) ; ses bras passent derrière
+    /// l'écran, sur le clavier.
+    /// </summary>
+    private static void DrawLaptop(ArtCanvas c, in PetPose p, int left, int right, int top, uint body)
+    {
+        int open = Math.Clamp(p.PropF, 0, 2);
+        int lidTop = open switch { 2 => -8, 1 => -5, _ => -3 };     // rangée du liseré du haut de l'écran
+        // bras : du flanc vers le clavier (le bout disparaît derrière l'écran) ; ils tapent chacun leur tour
+        if (open > 0)
+        {
+            int g = p.PropG & 3;
+            int ly = -5 - (g == 1 || g == 3 ? 1 : 0), ry = -5 - (g == 2 || g == 3 ? 1 : 0);
+            FrontArm(c, left - 1, top + 9, -9, ly, body, int.MinValue);
+            FrontArm(c, left - 1, top + 9, -9, ry, body, left + right);   // le bras droit, en miroir
+        }
+        // socle (clavier vu de face) et son liseré
+        c.Rect(-12, -2, 11, 0, Slate);
+        c.Rect(-11, -1, 10, -1, Keys);
+        // écran
+        if (open == 0) return;
+        c.Rect(-10, lidTop, 9, -2, Slate);
+        c.Rect(-9, lidTop + 1, 8, -3, LidSilver);
+        for (int x = -9; x <= 8; x++) c.Set(x, -3, LidShade);
+        if (open == 2)
+            c.Sprite(-3, lidTop + 1, SparkArt, ch => ch == 'o' ? Pal.Body : 0u);
     }
 
     /// <summary>Épaule d'un bras qui vise : juste à côté du corps (sur son liseré), en haut du flanc.</summary>
@@ -184,13 +395,21 @@ internal static class PetPainter
     {
         var (rx, ry) = AimRoot(left, top);
         rx += a.RX; ry += a.RY;
-        int hx = rx + a.DX, hy = ry + a.DY;
-        int mir = mirror ? left + right : int.MinValue;
-        // le contour part un peu après l'épaule : le bras sort du corps sans trait sombre à la jointure
-        int sx = rx + Math.Sign(a.DX), sy = ry + Math.Sign(a.DY);
+        FrontArm(c, rx, ry, rx + a.DX, ry + a.DY, col, mirror ? left + right : int.MinValue);
+    }
+
+    /// <summary>
+    /// Bras dessiné devant le corps, de l'épaule à la main : son contour, qui part juste après l'épaule (le bras
+    /// sort du corps sans trait sombre à la jointure), puis sa couleur. <paramref name="mir"/> : axe du miroir, ou MinValue.
+    /// </summary>
+    private static void FrontArm(ArtCanvas c, int rx, int ry, int hx, int hy, uint col, int mir)
+    {
+        int sx = rx + Math.Sign(hx - rx), sy = ry + Math.Sign(hy - ry);
         Stroke(c, sx, sy, hx, hy, 5, Pal.Outline, mir);
         Stroke(c, rx, ry, hx, hy, 3, col, mir);
     }
+
+    private static readonly int[] SwingRaise = { 0, 1, 2, 1 };
 
     private static void DrawLegs(ArtCanvas c, in PetPose p, int left, int right, int bottom, uint col)
     {
@@ -221,6 +440,15 @@ internal static class PetPainter
                     y1 = Math.Max(bottom + 1, -2);
                     if (outer) bend = -2;
                     break;
+                case Legs.Swing:
+                {
+                    // chaque paire passe devant (elle paraît plus courte), puis repart en arrière
+                    int ph = p.Kick & 3;
+                    int raise = SwingRaise[pairA ? ph : (ph + 2) & 3];
+                    y1 = bottom + 5 - raise;
+                    if (outer) bend = -1;
+                    break;
+                }
                 default: y1 = -2 - lift; break;
             }
             if (y1 < y0) y1 = y0;
@@ -248,6 +476,7 @@ internal static class PetPainter
 
     private static void DrawArm(ArtCanvas c, Arm a, int left, int right, int top, bool mirror, uint col, int grow)
     {
+        if (a.Kind == ArmK.Hidden) return;
         int sx = left, sy = top + 8;
         int rx = sx + 1, ry = sy + 1, hx, hy, size = 3;
         switch (a.Kind)
@@ -298,18 +527,19 @@ internal static class PetPainter
         uint e = Pal.Eye;
 
         void Both(int dx, int dy) { c.Set(x0 + dx, y0 + dy, e); c.Set(x1 + 1 - dx, y0 + dy, e); }
+        // le petit reflet blanc, en haut à droite de chaque œil ouvert
+        void Shine(int dy) { c.Set(x0 + 1, y0 + dy, Pal.Shine); c.Set(x1 + 1, y0 + dy, Pal.Shine); }
 
         switch (p.Eyes)
         {
             case Eyes.Open:
-                for (int y = 0; y < 4; y++) { Both(0, y); Both(1, y); }
-                break;
             case Eyes.Wide:
                 for (int y = 0; y < 4; y++) { Both(0, y); Both(1, y); }
-                c.Set(x0 + 1, y0, Pal.Shine); c.Set(x1 + 1, y0, Pal.Shine);
+                Shine(0);
                 break;
             case Eyes.Half:
                 for (int y = 2; y < 4; y++) { Both(0, y); Both(1, y); }
+                Shine(2);
                 break;
             case Eyes.Closed:
                 Both(0, 2); Both(1, 2);
@@ -339,6 +569,7 @@ internal static class PetPainter
                 break;
             case Eyes.Angry:
                 for (int y = 1; y < 4; y++) { Both(0, y); Both(1, y); }
+                Shine(1);
                 break;
         }
 
@@ -364,6 +595,9 @@ internal static class PetPainter
                 break;
             case Mouth.Frown:
                 c.Set(ml - 1, my + 1, e); c.Set(ml, my, e); c.Set(ml + 1, my, e); c.Set(ml + 2, my + 1, e);
+                break;
+            case Mouth.Flat:
+                c.Set(ml, my + 1, e); c.Set(ml + 1, my + 1, e);
                 break;
             case Mouth.SmallO:
                 c.Rect(ml, my, ml + 1, my + 1, m);

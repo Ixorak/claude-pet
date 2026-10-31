@@ -25,6 +25,7 @@ internal sealed partial class Pet
     private bool cursorWasInZone;
     private bool hangCalm;
     private double hangGrabX, hangGrabY, hangUntil, sitUntil, attachedAt;
+    private double sitNextHum, sitBlissUntil;   // assis sur le pointeur : il fredonne de temps en temps
 
     // Balancement au bout du pointeur : un pendule. Le centre du corps (« bob ») est une masse au bout d'un fil
     // rigide accroché à la main qui tient le pointeur ; le dessin tourne autour de la main.
@@ -51,7 +52,8 @@ internal sealed partial class Pet
     public void PrepareForBubbles()
     {
         clickPending = false;
-        if (State is St.Walk or St.Look or St.Stretch or St.Sit or St.Stunned or St.Tapped or St.GetUp or St.WakeUp or St.ReachUp or St.Land)
+        if (State is St.Walk or St.Look or St.Stretch or St.Sit or St.Stunned or St.Tapped or St.GetUp or St.WakeUp or St.ReachUp or St.Land
+            || BusyWithActivity)
         {
             VX = 0;
             Enter(St.Idle, 1);
@@ -503,6 +505,7 @@ internal sealed partial class Pet
         if (T >= Dur)
         {
             sitUntil = now + Rng.Range(40, 120);
+            sitNextHum = now + Rng.Range(1.5, 3.0);
             app.Play(Snd.Happy, 0.4);
             Enter(St.SitCursor);
         }
@@ -522,6 +525,15 @@ internal sealed partial class Pet
             nextLookChange = now + Rng.Range(1.0, 3.0);
             lookX = Rng.Int(-1, 2);
             lookY = Rng.Chance(0.3) ? 1 : 0;
+        }
+        // de temps en temps, il ferme les yeux de bonheur et fredonne
+        if (now >= sitNextHum)
+        {
+            sitNextHum = now + Rng.Range(3.0, 6.0);
+            sitBlissUntil = now + Rng.Range(0.8, 1.5);
+            HeadPoint(out double hx, out double hy);
+            int side = Rng.Sign();
+            app.Fx.Add(FxKind.Note, hx + side * BodyW * 0.4, hy - Scale * 2, side * Rng.Range(10, 25) * K, -Rng.Range(40, 60) * K, 1.4);
         }
         if (now > sitUntil)
         {
@@ -716,11 +728,14 @@ internal sealed partial class Pet
             }
             case St.SitCursor:
             {
-                int f = (int)(T * 1.6) & 1;
+                // assis sur le pointeur : il balance les jambes comme un enfant, tout sourire
+                int ph = (int)(T * 4.4) & 3;
+                bool bliss = Clock.Now < sitBlissUntil;
                 return PetPose.Stand with
                 {
-                    Legs = Legs.Dangle, Kick = f, L = Arm.Down, R = Arm.Down, LookX = lookX, LookY = lookY,
-                    Eyes = Eyes.Open, Mouth = ((int)(T * 0.3) % 3 == 0) ? Mouth.Smile : Mouth.None,
+                    Legs = Legs.Swing, Kick = ph, L = Arm.Down, R = Arm.Down,
+                    LookX = bliss ? 0 : lookX, LookY = bliss ? 0 : lookY,
+                    Eyes = bliss ? Eyes.Happy : Eyes.Open, Mouth = Mouth.Smile,
                 };
             }
             case St.ReachUp:

@@ -20,6 +20,7 @@ internal static class Program
             case "sheet": Sheets.Poses(path); break;
             case "house": Sheets.Houses(path); break;
             case "aim": Sheets.Aim(path); break;
+            case "props": Sheets.Props(path); break;
             default: Console.WriteLine("commande inconnue"); return 1;
         }
         Console.WriteLine("écrit : " + path);
@@ -246,6 +247,64 @@ internal static class Sheets
             int mx = ox + (px - x0) * k, my = oy + (py - y0) * k;
             Fill(img, W, mx - 2 * k, my, 5 * k, k, 0xFF2050E0);
             Fill(img, W, mx, my - 2 * k, k, 5 * k, 0xFF2050E0);
+        }
+        Png.Save(path, img, W, H);
+    }
+
+    /// <summary>Humeurs (bouche), reflets des yeux, clignement, café et ordinateur.</summary>
+    public static void Props(string path)
+    {
+        var s = PetPose.Stand;
+        var sit = PetPose.Sitting;
+        var laptop = s with { BodyBottom = -4, Legs = Legs.Kneel, L = Arm.Hidden, R = Arm.Hidden, Prop = Prop.Laptop };
+        sit = sit with { L = Arm.Hidden, R = Arm.Hidden };
+        var poses = new List<PetPose>
+        {
+            s with { Mouth = Mouth.Smile }, s with { Mouth = Mouth.Flat }, s with { Mouth = Mouth.Frown },
+            s with { Eyes = Eyes.Half, Mouth = Mouth.Flat }, s with { Eyes = Eyes.Closed, Mouth = Mouth.Flat },
+            s with { Eyes = Eyes.Angry, Brows = true, Mouth = Mouth.Frown, Red = 1 },
+            sit with { Prop = Prop.Mug, PropF = 0, Mouth = Mouth.Smile },
+            sit with { Prop = Prop.Mug, PropF = 1, Mouth = Mouth.Smile, LookY = -1 },
+            sit with { Prop = Prop.Mug, PropF = 2, Eyes = Eyes.Happy },
+            laptop with { PropF = 0, Mouth = Mouth.Smile, L = Arm.Down, R = Arm.Down }, laptop with { PropF = 1, Mouth = Mouth.Smile },
+            laptop with { PropF = 2, PropG = 0, Mouth = Mouth.Flat },
+            laptop with { PropF = 2, PropG = 1, Mouth = Mouth.Flat }, laptop with { PropF = 2, PropG = 2, Mouth = Mouth.Smile },
+            laptop with { PropF = 2, PropG = 3, LookY = -1, LookX = 1, Mouth = Mouth.SmallO },
+            s with { Prop = Prop.Headphones, Mouth = Mouth.Smile }, s with { Prop = Prop.Headphones, Eyes = Eyes.Happy, Mouth = Mouth.Smile, BodyBottom = -5, BodyH = 15, LiftA = 1, L = Arm.Raised },
+            sit with { Prop = Prop.Book, LookY = 1, Mouth = Mouth.Flat }, sit with { Prop = Prop.Book, PropF = 1, LookY = 1, LookX = 1, Mouth = Mouth.SmallO },
+            s with { Prop = Prop.Wand, Mouth = Mouth.SmallO, R = Arm.Hidden }, s with { Prop = Prop.Wand, PropF = 1, Mouth = Mouth.SmallO, R = Arm.Hidden },
+            s with { Legs = Legs.Swing, Kick = 0, L = Arm.Down, R = Arm.Down, Mouth = Mouth.Smile },
+            s with { Legs = Legs.Swing, Kick = 1, L = Arm.Down, R = Arm.Down, Mouth = Mouth.Smile },
+            s with { Legs = Legs.Swing, Kick = 2, L = Arm.Down, R = Arm.Down, Mouth = Mouth.Smile, Eyes = Eyes.Happy },
+            s with { Legs = Legs.Swing, Kick = 3, L = Arm.Down, R = Arm.Down, Mouth = Mouth.Smile },
+        };
+        RenderSheet(path, poses, 5);
+    }
+
+    private static void RenderSheet(string path, List<PetPose> poses, int cols)
+    {
+        int k = 6;
+        var c = PetPainter.NewCanvas();
+        int cw = c.W * k, ch = c.H * k;
+        int rows = (poses.Count + cols - 1) / cols;
+        int W = cols * cw, H = rows * ch;
+        var img = new uint[W * H];
+        for (int i = 0; i < img.Length; i++)
+        {
+            int x = i % W, y = i / W;
+            img[i] = ((((x / cw) + (y / ch)) & 1) == 0) ? 0xFFE9EEF5 : 0xFFD5DCE6;
+        }
+        for (int i = 0; i < poses.Count; i++)
+        {
+            PetPainter.Draw(c, poses[i]);
+            int ox = (i % cols) * cw, oy = (i / cols) * ch;
+            for (int y = 0; y < ch; y++)
+                for (int x = 0; x < cw; x++)
+                {
+                    uint p = c.Px[(y / k) * c.W + x / k];
+                    if ((p >> 24) != 0) img[(oy + y) * W + ox + x] = p;
+                }
+            for (int x = 0; x < cw; x++) img[(oy + c.OY * k + k) * W + ox + x] = 0xFF60C060; // le sol, sous la ligne y = 0
         }
         Png.Save(path, img, W, H);
     }

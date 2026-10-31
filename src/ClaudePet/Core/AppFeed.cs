@@ -39,7 +39,9 @@ internal sealed unsafe partial class App
             // redémarrage : seul le temps allumé depuis le démarrage compte (le PC éteint, non)
             double add = sameBoot ? u - d.LastUnbiased : u;
             d.HungerSeconds = Math.Min(HungerCap, d.HungerSeconds + Math.Max(0, add));
-            Log.Write($"Faim : +{add / 60:F0} min ({(sameBoot ? "même démarrage" : "redémarrage")}), total {d.HungerSeconds / 3600:F2} h");
+            d.LonelySeconds = Math.Min(LonelyCap, d.LonelySeconds + Math.Max(0, add));
+            Log.Write($"Faim : +{add / 60:F0} min ({(sameBoot ? "même démarrage" : "redémarrage")}), total {d.HungerSeconds / 3600:F2} h ; "
+                      + $"dernière caresse il y a {d.LonelySeconds / 60:F0} min");
         }
         d.BootStamp = boot;
         d.LastUnbiased = u;
@@ -57,6 +59,7 @@ internal sealed unsafe partial class App
         var d = Cfg.D;
         bool wasHungry = Hungry;
         d.HungerSeconds = Math.Min(HungerCap, d.HungerSeconds + delta);
+        d.LonelySeconds = Math.Min(LonelyCap, d.LonelySeconds + delta);
         if (!wasHungry && Hungry) Pet.OnBecameHungry();
         if (now >= nextHungerSave)
         {
@@ -71,6 +74,26 @@ internal sealed unsafe partial class App
         Cfg.D.LastUnbiased = lastUnbiased;
         Cfg.D.BootStamp = SysInfo.BootStamp;
         Cfg.Save();
+    }
+
+    private const double LonelyCap = 24 * 3600;
+
+    /// <summary>Temps « PC allumé » depuis la dernière caresse (son humeur : voir Pet.MoodMouth).</summary>
+    public double LonelySeconds => Cfg.D.LonelySeconds;
+
+    /// <summary>Ixorak vient de le caresser : il est content.</summary>
+    public void PettedNow()
+    {
+        if (Cfg.D.LonelySeconds == 0) return;
+        Cfg.D.LonelySeconds = 0;
+        StoreHunger();
+    }
+
+    /// <summary>Outil de test : fixe le temps depuis la dernière caresse.</summary>
+    public void SetLonely(double seconds)
+    {
+        Cfg.D.LonelySeconds = Math.Clamp(seconds, 0, LonelyCap);
+        StoreHunger();
     }
 
     /// <summary>Jauge de faim : 1 = rassasié, 0 = affamé.</summary>

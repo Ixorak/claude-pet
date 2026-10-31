@@ -43,13 +43,29 @@ internal sealed partial class Pet
             case "swinglow": SwingLowTest(now); break;
             case "reachtest": ReachTest(now); break;
             case "pettest": PetTest(now); break;
+            case "sittest": SitTest(now); break;
             case "climbwin": Log.Write("Escalade d'une fenêtre : " + TryClimbWindow()); break;
             case "climb": if (State != St.Hidden) Log.Write("Grimper : " + GoClimb()); break;
             case "jumpwin": if (State != St.Hidden) Log.Write("Saut vers une fenêtre : " + TryJumpToWindow()); break;
             case "hopdown": Log.Write("Redescendre : " + TryHopDown()); break;
             case "tunnel": Log.Write("Tunnel : " + StartTunnel()); break;
+            case "coffee": if (CanStartActivity()) StartCoffee(); break;
+            case "laptop": if (CanStartActivity()) StartLaptop(); break;
+            case "music": if (CanStartActivity()) StartMusic(); break;
+            case "read": if (CanStartActivity()) StartRead(); break;
+            case "bubbles": if (CanStartActivity()) StartBubbles(); break;
+            case "happy": app.SetLonely(0); Log.Write("Humeur : " + MoodName); break;
+            case "meh": app.SetLonely(30 * 60); Log.Write("Humeur : " + MoodName); break;
+            case "sad": app.SetLonely(3 * 3600); Log.Write("Humeur : " + MoodName); break;
+            case "climbpage":
+                FloorRange(BodyW * 12, out double minX, out double maxX);
+                Log.Write("Escalade d'une page : " + (State is St.Idle or St.Sit or St.Look or St.Walk && GoClimbPage(minX, maxX)));
+                break;
         }
     }
+
+    /// <summary>Outil de test : il est au sol, libre de commencer une occupation.</summary>
+    private bool CanStartActivity() => (State is St.Idle or St.Sit or St.Look or St.Walk || BusyWithActivity) && Supported();
 
     /// <summary>
     /// Outil de test du balancement : un pointeur imaginaire (la vraie souris ne bouge pas) attrapé au-dessus de Pet,
@@ -128,6 +144,23 @@ internal sealed partial class Pet
         Log.Write("Test : bras levés vers un pointeur imaginaire");
     }
 
+    /// <summary>Test : assis 6 s sur un pointeur imaginaire immobile, au-dessus de lui, puis il saute.</summary>
+    private void SitTest(double now0)
+    {
+        if (!Physical || State == St.Air) return;
+        double sx = X, sy = Y - HH * 2.5;
+        app.Cursor.FakeUntil = now0 + 6.5;
+        app.Cursor.Fake = t => (sx, sy);
+        app.Cursor.Update(now0);
+        LeaveSurface();
+        VX = 0; VY = 0;
+        X = sx; Y = sy + SitOnCursorOffset;
+        sitUntil = now0 + 6;
+        sitNextHum = now0 + 1.0;
+        Enter(St.SitCursor);
+        Log.Write("Test : assis sur un pointeur imaginaire");
+    }
+
     /// <summary>Test : un pointeur imaginaire caresse Pet pendant 4 s.</summary>
     private void PetTest(double now0)
     {
@@ -145,5 +178,5 @@ internal sealed partial class Pet
     }
 
     public string Describe() => string.Create(CultureInfo.InvariantCulture,
-        $"état={State} t={T:F2} X={X:F1} Y={Y:F1} VX={VX:F0} VY={VY:F0} échelle={Scale:F2} écran={Scr} face={Facing}");
+        $"état={State} t={T:F2} X={X:F1} Y={Y:F1} VX={VX:F0} VY={VY:F0} échelle={Scale:F2} écran={Scr} face={Facing} humeur={MoodName}");
 }

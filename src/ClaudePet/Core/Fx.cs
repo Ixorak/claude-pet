@@ -4,7 +4,7 @@ using ClaudePet.Util;
 
 namespace ClaudePet.Core;
 
-internal enum FxKind : byte { Spark, Dust, Zed, Smoke, Dirt, Crumb, Heart, Sweat, Puff, Note }
+internal enum FxKind : byte { Spark, Dust, Zed, Smoke, Dirt, Crumb, Heart, Sweat, Puff, Note, Steam, Claude, Bubble }
 
 internal struct Particle
 {
@@ -53,6 +53,7 @@ internal static class FxSprites
         'S' => Col.Rgb(0x8E, 0x8E, 0x92),
         's' => Col.Rgb(0xB8, 0xB8, 0xBC),
         'K' => Col.Rgb(0x30, 0x2A, 0x3A),
+        'O' => Col.Rgb(0xD9, 0x77, 0x57),
         _ => 0,
     };
 
@@ -70,6 +71,14 @@ internal static class FxSprites
     public static readonly Sprite Exclaim = Make(new[] { "YY", "YY", "YY", "..", "YY" }, P, Col.Rgb(0x8A, 0x1E, 0x14));
     public static readonly Sprite Question = Make(new[] { ".YYY.", "Y...Y", "...Y.", "..Y..", ".....", "..Y.." }, P, Col.Rgb(0x8A, 0x1E, 0x14));
     public static readonly Sprite Note = Make(new[] { "..KK", "..K.", "..K.", "KKK.", "KK.." }, P, Col.Rgb(255, 255, 255));
+    /// <summary>Un filet de vapeur (café).</summary>
+    public static readonly Sprite Steam = Make(new[] { ".G", "G.", "G.", ".G", "G." }, P, Col.Rgb(0xA9, 0xA9, 0xB0));
+    /// <summary>La petite étoile orange qui monte de son ordinateur.</summary>
+    public static readonly Sprite Claude = Make(new[] { "..O..", "O.O.O", ".OOO.", "O.O.O", "..O.." }, P, Col.Rgb(0x4A, 0x22, 0x14));
+    /// <summary>Bulles de savon (un anneau et un reflet, transparentes au milieu), et l'éclat quand elles éclatent.</summary>
+    public static readonly Sprite Bubble = Make(new[] { ".BBB.", "B..WB", "B...B", "B...B", ".BBB." }, P, 0);
+    public static readonly Sprite BubbleSmall = Make(new[] { ".B.", "BWB", ".B." }, P, 0);
+    public static readonly Sprite BubblePop = Make(new[] { "B...B", ".....", "..W..", ".....", "B...B" }, P, 0);
 }
 
 /// <summary>Les effets autour de Pet (étoiles, poussière, zZz, fumée, terre...), dans une fenêtre qui laisse passer les clics.</summary>
@@ -85,12 +94,14 @@ internal sealed unsafe class Fx
         get
         {
             if (ps.Count == 0) return overlays ? 1.0 / 24 : double.MaxValue;
-            bool onlyZed = true;
+            bool onlyZed = true, bubbles = false;
             foreach (var p in ps)
             {
-                if (p.Kind is not (FxKind.Zed or FxKind.Heart or FxKind.Note)) return 1.0 / 60;
+                if (p.Kind == FxKind.Bubble) { bubbles = true; onlyZed = false; continue; }
+                if (p.Kind is not (FxKind.Zed or FxKind.Heart or FxKind.Note or FxKind.Steam or FxKind.Claude)) return 1.0 / 60;
                 if (p.Kind != FxKind.Zed) onlyZed = false;
             }
+            if (bubbles) return 1.0 / 30;   // les bulles dérivent : 30 images par seconde
             // Les « Z » du sommeil flottent lentement : 4 images par seconde suffisent (CPU quasi nul pendant qu'il dort).
             return overlays ? 1.0 / 24 : onlyZed ? 1.0 / 4 : 1.0 / 12;
         }
@@ -179,6 +190,22 @@ internal sealed unsafe class Fx
                     a = life > 0.6 ? (1 - life) / 0.4 : 1;
                     Add(FxSprites.Note, p.X + Math.Sin(p.T * 4 + p.Wobble) * k, p.Y, a, kSmall);
                     break;
+                case FxKind.Steam:
+                    a = (life < 0.2 ? life / 0.2 : 1 - (life - 0.2) / 0.8) * 0.7;
+                    Add(FxSprites.Steam, p.X + Math.Sin(p.T * 3 + p.Wobble) * k * 0.8, p.Y, a, kSmall);
+                    break;
+                case FxKind.Claude:
+                    a = life < 0.15 ? life / 0.15 : life > 0.7 ? (1 - life) / 0.3 : 1;
+                    Add(FxSprites.Claude, p.X + Math.Sin(p.T * 2.5 + p.Wobble) * k, p.Y, a, kSmall);
+                    break;
+                case FxKind.Bubble:
+                {
+                    // elle dérive en ondulant, puis éclate
+                    double bx = p.X + Math.Sin(p.T * 3.2 + p.Wobble) * k * 1.2;
+                    if (life > 0.93) Add(FxSprites.BubblePop, bx, p.Y, 0.9, kSmall);
+                    else Add(p.Variant == 0 ? FxSprites.Bubble : FxSprites.BubbleSmall, bx, p.Y, life < 0.1 ? life / 0.1 * 0.9 : 0.9, kSmall);
+                    break;
+                }
                 case FxKind.Dirt:
                 case FxKind.Crumb:
                     a = life > 0.75 ? (1 - life) / 0.25 : 1;

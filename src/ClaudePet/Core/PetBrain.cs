@@ -37,20 +37,25 @@ internal sealed partial class Pet
             return;
         }
         bool calm = app.Cfg.Calm, hungry = app.Hungry, lively = !calm && !hungry;
-        Span<double> w = stackalloc double[13];
-        w[0] = (calm ? 26 : 40) * (hungry ? hunger : 1);  // marcher
-        w[1] = lively ? 12 : 0;   // courir
-        w[2] = (calm ? 42 : 14) + (hungry ? 30 : 0);  // s'asseoir
-        w[3] = 12;                // regarder autour
-        w[4] = calm ? 5 : 6;      // s'étirer
-        w[5] = lively ? 7 : 0;    // petit saut sur place
-        w[6] = lively ? 9 : 0;    // sauter sur une fenêtre
-        w[7] = OnWindow ? (calm ? 5 : 7) : 0;          // redescendre de la fenêtre
-        w[8] = lively && !OnWindow ? 4 : 0;            // aller grimper à un mur
+        Span<double> w = stackalloc double[18];
+        w[0] = (calm ? 26 : 28) * (hungry ? hunger : 1);  // marcher
+        w[1] = lively ? 11 : 0;   // courir
+        w[2] = (calm ? 38 : 11) + (hungry ? 30 : 0);  // s'asseoir
+        w[3] = calm ? 12 : 9;     // regarder autour
+        w[4] = calm ? 5 : 5;      // s'étirer
+        w[5] = lively ? 8 : 0;    // petit saut sur place
+        w[6] = lively ? 14 : 0;   // sauter sur une fenêtre
+        w[7] = OnWindow ? 5 : 0;  // redescendre de la fenêtre
+        w[8] = lively && !OnWindow ? 12 : 0;                      // grimper à un mur, ou au côté d'une page agrandie
         w[9] = !hungry && TunnelCandidate(out _) != null ? 5 : 0; // tunnel sous un écran en plein écran
         w[10] = calm ? 4 : hungry ? 5 : 1.5;                      // petite sieste
         w[11] = CursorNear(BodyW * 9) ? 10 : 0;                   // regarder la souris
-        w[12] = lively ? 7 : 0;                                   // escalader le côté d'une fenêtre pour se mettre dessus
+        w[12] = lively ? 12 : 0;                                  // escalader le côté d'une fenêtre pour se mettre dessus
+        w[13] = hungry ? 2 : calm ? 9 : 6;                        // boire un café
+        w[14] = hungry ? 2 : calm ? 9 : 7;                        // taper sur son ordinateur
+        w[15] = hungry ? 1 : calm ? 7 : 6;                        // écouter de la musique (et danser)
+        w[16] = hungry ? 2 : calm ? 9 : 5;                        // lire un livre
+        w[17] = hungry ? 1 : calm ? 5 : 6;                        // souffler des bulles de savon
         switch (Rng.Pick(w))
         {
             case 0: if (!StartWander(false)) Enter(St.Sit, Rng.Range(3, 8)); break;
@@ -59,16 +64,22 @@ internal sealed partial class Pet
             case 3: Enter(St.Look, Rng.Range(1.5, 3.5)); break;
             case 4: app.Play(Snd.Yawn, 0.4); Enter(St.Stretch, 1.7); break;
             case 5: Hop(); break;
-            case 6: if (!TryJumpToWindow()) Enter(St.Look, Rng.Range(1.0, 2.5)); break;
+            // grimper : s'il n'y a pas de fenêtre à portée, il essaie autre chose en hauteur
+            case 6: if (!TryJumpToWindow() && !TryClimbWindow() && !GoClimb()) Enter(St.Look, Rng.Range(1.0, 2.5)); break;
             case 7: if (!TryHopDown()) Enter(St.Sit, Rng.Range(3, 8)); break;
-            case 8: if (!GoClimb()) Enter(St.Look, Rng.Range(1.0, 2.5)); break;
+            case 8: if (!GoClimb() && !TryJumpToWindow()) Enter(St.Look, Rng.Range(1.0, 2.5)); break;
             case 9: if (!StartTunnel()) Enter(St.Idle, 1); break;
             case 10: Nap(); break;
             case 11:
                 watchUntil = Clock.Now + Rng.Range(2.5, 5.0);
                 Enter(St.Look, watchUntil - Clock.Now);
                 break;
-            case 12: if (!TryClimbWindow()) Enter(St.Look, Rng.Range(1.0, 2.5)); break;
+            case 12: if (!TryClimbWindow() && !TryJumpToWindow() && !GoClimb()) Enter(St.Look, Rng.Range(1.0, 2.5)); break;
+            case 13: StartCoffee(); break;
+            case 14: StartLaptop(); break;
+            case 15: StartMusic(); break;
+            case 16: StartRead(); break;
+            case 17: StartBubbles(); break;
             default: Enter(St.Idle, 1); break;
         }
     }
@@ -100,6 +111,7 @@ internal sealed partial class Pet
 
     private void WalkTo(double x, bool run)
     {
+        wantPageClimb = false;
         targetX = x;
         running = run;
         bool calm = app.Cfg.Calm;
@@ -135,6 +147,7 @@ internal sealed partial class Pet
         if (HomeArrived()) return;
         if (TunnelArrived()) return;
         if (ClimbWindowArrived()) return;
+        if (PageClimbArrived()) return;
         wantClimb = false;
         Enter(St.Idle, Angry ? Rng.Range(0.05, 0.3) : app.Cfg.Calm ? Rng.Range(1.5, 4.0) : Rng.Range(0.4, 2.0));
     }
@@ -150,6 +163,7 @@ internal sealed partial class Pet
         }
         if (TunnelArrived()) return;
         climbWinWalk = false;
+        wantPageClimb = false;
         // un mur : il grimpe (s'il était venu pour ça, ou parfois), sinon demi-tour
         bool climb = wantClimb || Rng.Chance(Angry ? 0.6 : 0.35);
         wantClimb = false;

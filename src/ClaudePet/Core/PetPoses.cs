@@ -50,12 +50,21 @@ internal sealed partial class Pet
             case St.Petted:
                 p = PettedPose();
                 break;
+            case St.Coffee:
+            case St.Laptop:
+            case St.Music:
+            case St.Read:
+            case St.Bubbles:
+                p = ActivityPose();
+                break;
             default: p = IdlePose(); break;
         }
         p = ExtraPose(p, ref clipY);
         p = FeedRetouch(p);
         p = ApplyMood(p);
-        if (Blinking && (p.Eyes == Eyes.Open || p.Eyes == Eyes.Wide || p.Eyes == Eyes.Half)) p.Eyes = Eyes.Closed;
+        // pas de bouche prévue (il ne fait rien de spécial) : celle de son humeur ; pas quand il dort
+        if (p.Mouth == Mouth.None && p.Eyes != Eyes.Closed) p.Mouth = MoodMouth;
+        p.Eyes = BlinkEyes(p.Eyes);
         lastPose = p;
         return p;
     }

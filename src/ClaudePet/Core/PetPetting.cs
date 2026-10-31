@@ -61,6 +61,7 @@ internal sealed partial class Pet
     {
         petStrokes++;
         petSquishAt = now;
+        app.PettedNow(); // son humeur : content
         if (now >= nextPetHeart)
         {
             nextPetHeart = now + Rng.Range(0.4, 0.75);
