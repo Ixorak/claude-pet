@@ -10,8 +10,8 @@ internal sealed class ConfigData
     public bool Calm { get; set; }
     public bool Muted { get; set; }
     public int Volume { get; set; } = 70;
-    /// <summary>Taille de Pet : pixels écran par pixel art, à 100 % d'échelle Windows (3 à 14).</summary>
-    public int Size { get; set; } = 7;
+    /// <summary>Taille de Pet : pixels écran par pixel art, à 100 % d'échelle Windows (3 à 14). 9 : environ 240 px de large.</summary>
+    public int Size { get; set; } = 9;
     /// <summary>Temps « PC allumé » depuis le dernier repas, en secondes (la jauge de faim).</summary>
     public double HungerSeconds { get; set; }
     /// <summary>Repère de temps allumé (sans veille) à la dernière sauvegarde.</summary>
@@ -28,7 +28,7 @@ internal sealed partial class ConfigJson : JsonSerializerContext
 
 internal sealed class Config
 {
-    public const int MinSize = 3, MaxSize = 14, DefaultSize = 7;
+    public const int MinSize = 3, MaxSize = 14, DefaultSize = 9;
     public static readonly string Folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Pet");
     public static readonly string FilePath = Path.Combine(Folder, "config.json");
 
