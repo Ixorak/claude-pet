@@ -11,7 +11,7 @@ fenêtres, s'accroche à ton pointeur, boit son café, code sur son petit ordina
 
 ![Le menu de Claude Pet, une baie, des caresses, un livre sur une fenêtre, un lancer et une sieste](docs/pet-life.gif)
 
-▶ **[Voir la démo complète (75 secondes, MP4)](docs/demo.mp4)** (en anglais : c'est la langue de Pet par défaut)
+⬇ **[Télécharger la démo complète](https://github.com/Ixorak/claude-pet/raw/master/docs/demo.mp4)** (MP4, 75 secondes, 1,9 Mo ; Pet y parle anglais, sa langue par défaut)
 
 ## Ce qu'il fait
 

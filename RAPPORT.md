@@ -228,6 +228,11 @@ quand il est caché), et la sortie audio se ferme après 3 s de silence.
   noreply). Licence MIT, comme ton projet QuickAsk. Le README dit clairement que c'est un projet de fan non officiel,
   que « Claude » et son logo appartiennent à Anthropic, et que la licence ne couvre que le code. Version 1.0.0 avec
   `PetSetup.exe`. Le README est en anglais (la langue de tes autres dépôts), avec un lien vers la version française.
+  Créé d'abord en privé (le système de sécurité de l'appli voulait ton accord pour le public), puis rendu public après
+  ton « oui ». GitHub ne lit pas les vidéos MP4 dans la page : il retire la balise vidéo des README et refuse les
+  vidéos venant de son domaine de fichiers bruts. Ce sont donc les deux GIF qui montrent la démo (ils en couvrent
+  presque toute la durée), et le README propose de télécharger la vidéo complète. Pour un vrai lecteur vidéo dans la
+  page, il faudrait déposer la vidéo depuis un navigateur connecté à ton compte GitHub.
 - **Fichiers hors du projet** (créés par moi pour les tests, à supprimer quand tu veux) : le raccourci **PetDev** sur ton
   bureau (il lance la version de développement avec `--house PetDev`) ; une ligne `/Pet/` dans
   `F:\protos\.git\info\exclude` (pour que le dépôt de `F:\protos` ignore ce dossier, purement local). Les lancements faits

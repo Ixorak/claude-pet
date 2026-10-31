@@ -11,7 +11,7 @@ windows, hangs on your mouse pointer, drinks coffee, codes on his little laptop 
 
 ![Claude Pet's menu, a berry, head pats, a book on top of a window, a throw and a nap](docs/pet-life.gif)
 
-▶ **[Watch the full demo (75 seconds, MP4)](docs/demo.mp4)**
+⬇ **[Download the full demo video](https://github.com/Ixorak/claude-pet/raw/master/docs/demo.mp4)** (MP4, 75 seconds, 1.9 MB)
 
 ## What he does
 
