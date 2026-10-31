@@ -132,13 +132,14 @@ internal sealed partial class Pet
     private bool GoClimb()
     {
         if (OnWindow) return false;
-        FloorRange(BodyW * 30, out double minX, out double maxX);
+        // seulement un mur assez proche (sinon la marche serait interminable)
+        FloorRange(BodyW * 12, out double minX, out double maxX);
         double step = Math.Max(4, HW * 0.5);
         bool wallL = !FreeAt(minX - step, Y), wallR = !FreeAt(maxX + step, Y);
         if (!wallL && !wallR) return false;
         int dir = wallL && wallR ? (X - minX < maxX - X ? -1 : 1) : wallL ? -1 : 1;
         double target = dir < 0 ? minX - BodyW : maxX + BodyW;
-        WalkTo(target, run: Rng.Chance(0.4));
+        WalkTo(target, run: Math.Abs(target - X) > BodyW * 5 || Rng.Chance(0.3));
         wantClimb = true;
         return true;
     }
@@ -304,7 +305,7 @@ internal sealed partial class Pet
         tunnelTarget = target;
         tunnelDir = dir;
         tunnelWalk = true;
-        WalkTo(edge + dir * BodyW, run: Rng.Chance(0.5));
+        WalkTo(edge + dir * BodyW, run: Math.Abs(edge - X) > BodyW * 5 || Rng.Chance(0.5));
         Log.Write($"Tunnel : Pet va creuser sous l'écran en plein écran vers l'écran {target.Index}");
         return true;
     }

@@ -94,6 +94,7 @@ internal sealed partial class Pet
         {
             Log.Write("La fenêtre sous Pet a été fermée, réduite ou agrandie : il tombe");
             supportHwnd = 0;
+            app.Play(Snd.Fall, 0.45);
             StartFall(0, 0);
             return;
         }

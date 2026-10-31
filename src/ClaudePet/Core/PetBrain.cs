@@ -37,7 +37,7 @@ internal sealed partial class Pet
             return;
         }
         bool calm = app.Cfg.Calm, hungry = app.Hungry, lively = !calm && !hungry;
-        Span<double> w = stackalloc double[10];
+        Span<double> w = stackalloc double[12];
         w[0] = (calm ? 26 : 40) * (hungry ? hunger : 1);  // marcher
         w[1] = lively ? 12 : 0;   // courir
         w[2] = (calm ? 42 : 14) + (hungry ? 30 : 0);  // s'asseoir
@@ -48,6 +48,8 @@ internal sealed partial class Pet
         w[7] = OnWindow ? (calm ? 5 : 7) : 0;          // redescendre de la fenêtre
         w[8] = lively && !OnWindow ? 4 : 0;            // aller grimper à un mur
         w[9] = !hungry && TunnelCandidate(out _) != null ? 5 : 0; // tunnel sous un écran en plein écran
+        w[10] = calm ? 4 : hungry ? 5 : 1.5;                      // petite sieste
+        w[11] = CursorNear(BodyW * 9) ? 10 : 0;                   // regarder la souris
         switch (Rng.Pick(w))
         {
             case 0: if (!StartWander(false)) Enter(St.Sit, Rng.Range(3, 8)); break;
@@ -60,6 +62,11 @@ internal sealed partial class Pet
             case 7: if (!TryHopDown()) Enter(St.Sit, Rng.Range(3, 8)); break;
             case 8: if (!GoClimb()) Enter(St.Look, Rng.Range(1.0, 2.5)); break;
             case 9: if (!StartTunnel()) Enter(St.Idle, 1); break;
+            case 10: Nap(); break;
+            case 11:
+                watchUntil = Clock.Now + Rng.Range(2.5, 5.0);
+                Enter(St.Look, watchUntil - Clock.Now);
+                break;
             default: Enter(St.Idle, 1); break;
         }
     }

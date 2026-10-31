@@ -28,8 +28,9 @@ internal sealed partial class Pet
     private double swing, swingV;
 
     // Sommeil
-    private bool manualSleep;
-    private double nextZ, nextSnore;
+    private bool manualSleep;   // bulle « Dormir » : jusqu'à ce qu'Ixorak clique
+    private bool idleSleep;     // Ixorak ne touche plus au PC : jusqu'à son retour
+    private double nextZ, nextSnore, nextIdleCheck;
     private int zVariant;
 
     /// <summary>Les bulles d'options sont ouvertes : Pet reste tranquille et regarde Ixorak.</summary>
@@ -402,13 +403,15 @@ internal sealed partial class Pet
     public void SleepUntilClicked()
     {
         if (!Physical || State == St.Air) return;
-        manualSleep = true;
         StartSleep(0);
+        manualSleep = true;
     }
 
     private void StartSleep(double duration)
     {
         double now = Clock.Now;
+        manualSleep = false;
+        idleSleep = false;
         nextZ = now + 0.9;
         nextSnore = now + 2.8;
         zVariant = 0;
@@ -436,13 +439,30 @@ internal sealed partial class Pet
             nextSnore = now + Rng.Range(5.0, 7.0);
             app.Play(Snd.Snore, 0.3);
         }
-        if (!manualSleep && Dur > 0 && T >= Dur) WakeUp();
+        if (idleSleep && SysInfo.UserIdleSeconds < 1.5) { WakeUp(); return; } // Ixorak est revenu
+        if (!manualSleep && !idleSleep && Dur > 0 && T >= Dur) WakeUp();
     }
+
+    /// <summary>Ixorak ne touche plus à rien depuis 3 minutes : Pet s'endort, et se réveille à son retour.</summary>
+    private void CheckUserIdle(double now)
+    {
+        if (now < nextIdleCheck) return;
+        nextIdleCheck = now + 1.0;
+        if (State is not (St.Idle or St.Sit or St.Look) || Angry || homeBound || Attentive || app.FeedingActive || pressing) return;
+        if (SysInfo.UserIdleSeconds < 180) return;
+        Log.Write("Ixorak est absent : Pet s'endort");
+        StartSleep(0);
+        idleSleep = true;
+    }
+
+    /// <summary>Petite sieste toute seule.</summary>
+    private void Nap() => StartSleep(Rng.Range(25, 70));
 
     public void WakeUp()
     {
         if (State != St.Sleep) return;
         manualSleep = false;
+        idleSleep = false;
         app.Play(Snd.Yawn, 0.5);
         Enter(St.WakeUp, 1.4);
     }

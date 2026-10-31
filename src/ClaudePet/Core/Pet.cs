@@ -92,7 +92,7 @@ internal sealed partial class Pet
     // Regard et clignements
     private double nextBlink, blinkEnd;
     private int lookX, lookY;
-    private double nextLookChange;
+    private double nextLookChange, watchUntil;
 
     // Souris (clic maintenu, glisser)
     private bool pressing, dragging;
@@ -180,6 +180,7 @@ internal sealed partial class Pet
 
         ShowStars = State == St.Stunned || (State == St.Tapped && T > 0.12);
         FeedMoodTick(now);
+        CheckUserIdle(now);
         UpdateMood(dt, now);
         UpdateBlink(now);
     }
@@ -518,6 +519,7 @@ internal sealed partial class Pet
 
     private void UpdateLook()
     {
+        if (Clock.Now < watchUntil) { TrackCursorWithEyes(true); return; } // il regarde la souris
         if (Clock.Now >= nextLookChange)
         {
             nextLookChange = Clock.Now + Rng.Range(0.5, 1.2);
