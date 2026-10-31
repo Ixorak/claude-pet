@@ -41,7 +41,7 @@ internal sealed unsafe partial class App
 
     public void OpenBubbles()
     {
-        if (Pet.State is St.Hidden or St.Air or St.Dragged or St.HangCursor or St.SitCursor or St.ClimbCursor
+        if (Pet.OnCursor || Pet.State is St.Hidden or St.Air or St.Dragged
             or St.HomeJump or St.EnterDoor or St.Dig or St.Underground or St.ExitDoor or St.Emerge or St.Climb) return;
         if (Pet.State == St.Sleep) Pet.WakeUp();
         Pet.PrepareForBubbles();

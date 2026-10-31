@@ -21,6 +21,84 @@ internal sealed partial class Pet
     /// <summary>Il est occupé à une de ses petites activités (café, ordinateur, musique, lecture, bulles).</summary>
     private bool BusyWithActivity => State is St.Coffee or St.Laptop or St.Music or St.Read or St.Bubbles;
 
+    private static bool IsActivity(St s) => s is St.Coffee or St.Laptop or St.Music or St.Read or St.Bubbles;
+
+    // ------------------------------------------------------------------ sur le pointeur
+
+    /// <summary>L'occupation en cours se fait assis sur le pointeur d'Ixorak (il le suit, jambes qui se balancent).</summary>
+    private bool perched;
+    private double perchNextActivity;
+
+    /// <summary>Accroché, assis sur le pointeur, ou occupé dessus : il suit la souris et laisse passer les clics.</summary>
+    public bool OnCursor => State is St.HangCursor or St.ClimbCursor or St.SitCursor || (perched && BusyWithActivity);
+
+    /// <summary>Commence une occupation, au sol ou assis sur le pointeur (s'il y est).</summary>
+    private void BeginActivity(St s, double dur)
+    {
+        perched = State == St.SitCursor || (perched && BusyWithActivity);
+        lookX = 0; lookY = 0;
+        VX = 0; VY = 0;
+        app.Play(Snd.Click, 0.28);
+        Enter(s, dur);
+    }
+
+    /// <summary>
+    /// Au sol, il doit rester posé ; sur le pointeur, il le suit (secoué, ou le pointeur sur un écran en plein écran :
+    /// il tombe). Faux s'il vient de quitter son occupation.
+    /// </summary>
+    private bool HoldActivity(double now)
+    {
+        if (!perched) return CheckSupport();
+        if (sitTestEnd > 0 && now >= sitTestEnd) { sitTestEnd = 0; perchTest = false; DropFromCursor(false, now); return false; }
+        if (CursorOnFullscreen()) { DropFromCursor(false, now); return false; }
+        if (Shaken(now)) { DropFromCursor(true, now); return false; }
+        var c = app.Cursor;
+        X = c.X;
+        Y = c.Y + SitOnCursorOffset;
+        return true;
+    }
+
+    /// <summary>Fin de l'occupation : il reprend sa vie au sol, ou se remet à balancer les jambes sur le pointeur.</summary>
+    private void EndActivity()
+    {
+        if (perched)
+        {
+            perched = false;
+            double now = Clock.Now;
+            sitNextHum = now + Rng.Range(2.0, 4.0);
+            perchNextActivity = now + Rng.Range(8, 18);
+            Enter(St.SitCursor);
+            return;
+        }
+        Enter(St.Idle, Rng.Range(0.5, 1.2));
+    }
+
+    /// <summary>Assis sur le pointeur, il se trouve une occupation.</summary>
+    private void StartPerchActivity()
+    {
+        Span<double> w = stackalloc double[5];
+        w[0] = 6; w[1] = 7; w[2] = 7; w[3] = 6; w[4] = 5;
+        switch (Rng.Pick(w))
+        {
+            case 0: StartCoffee(); break;
+            case 1: StartLaptop(); break;
+            case 2: StartMusic(); break;
+            case 3: StartRead(); break;
+            default: StartBubbles(); break;
+        }
+        Log.Write("Sur le pointeur : " + State);
+    }
+
+    /// <summary>La même occupation, assis sur le pointeur : le corps posé dessus, les jambes qui se balancent.</summary>
+    private PetPose Perch(PetPose p)
+    {
+        if (p.Legs is Legs.Sit or Legs.Kneel) p.BodyBottom = -6;
+        p.Legs = Legs.Swing;
+        p.Kick = (int)(Clock.Now * 4.4) & 3;
+        p.LiftA = 0; p.LiftB = 0;
+        return p;
+    }
+
     // ------------------------------------------------------------------ café
 
     private const double SipLen = 1.5;      // lever la tasse (0,3 s), boire (0,9 s), la reposer (0,3 s)
@@ -35,20 +113,17 @@ internal sealed partial class Pet
         coffeeSipAt = -10;
         coffeeSlurp = false;
         coffeeNextSteam = now + 0.3;
-        lookX = 0; lookY = 0;
-        VX = 0;
-        app.Play(Snd.Click, 0.3);
-        Enter(St.Coffee, Rng.Range(10, 18));
+        BeginActivity(St.Coffee, Rng.Range(10, 18));
         return true;
     }
 
     private void UpdateCoffee(double dt, double now)
     {
-        if (!CheckSupport()) return;
+        if (!HoldActivity(now)) return;
         if (T >= Dur)
         {
             app.Play(Snd.Click, 0.25); // il range sa tasse
-            Enter(St.Idle, Rng.Range(0.5, 1.2));
+            EndActivity();
             return;
         }
         bool sipping = now - coffeeSipAt < SipLen;
@@ -97,10 +172,7 @@ internal sealed partial class Pet
         lapPauseEnd = now + 0.9;              // le temps d'ouvrir l'écran
         lapNextSpark = now + Rng.Range(1.5, 3.5);
         lapKey = 1;
-        lookX = 0; lookY = 0;
-        VX = 0;
-        app.Play(Snd.Click, 0.3);
-        Enter(St.Laptop, Rng.Range(14, 26));
+        BeginActivity(St.Laptop, Rng.Range(14, 26));
         return true;
     }
 
@@ -109,8 +181,8 @@ internal sealed partial class Pet
 
     private void UpdateLaptop(double dt, double now)
     {
-        if (!CheckSupport()) return;
-        if (T >= Dur) { Enter(St.Idle, Rng.Range(0.5, 1.2)); return; }
+        if (!HoldActivity(now)) return;
+        if (T >= Dur) { EndActivity(); return; }
         if (T >= Dur - 0.5 && T - dt < Dur - 0.5) app.Play(Snd.Click, 0.25); // il referme l'écran
         if (LaptopLid < 2) { lapTyping = false; return; }
         if (lapTyping)
@@ -131,8 +203,11 @@ internal sealed partial class Pet
                 if (now >= lapNextSpark)
                 {
                     lapNextSpark = now + Rng.Range(2.5, 5.0);
-                    app.Fx.Add(FxKind.Claude, X + Rng.Range(-3, 3) * RenderScale, Y - 10 * RenderScale,
-                        Rng.Range(-10, 10) * K, -Rng.Range(40, 55) * K, Rng.Range(1.4, 1.9));
+                    // une idée : une petite étoile orange apparaît à côté de sa tête et s'envole
+                    HeadPoint(out double hx, out double hy);
+                    int side = Rng.Sign();
+                    app.Fx.Add(FxKind.Claude, hx + side * BodyW * Rng.Range(0.45, 0.6), hy - Scale * 2,
+                        side * Rng.Range(5, 15) * K, -Rng.Range(40, 55) * K, Rng.Range(1.4, 1.9));
                 }
             }
         }
@@ -156,17 +231,14 @@ internal sealed partial class Pet
         double now = Clock.Now;
         musicStart = now;
         musicNextNote = now + 0.6;
-        lookX = 0; lookY = 0;
-        VX = 0;
-        app.Play(Snd.Click, 0.25);
-        Enter(St.Music, Rng.Range(10, 18));
+        BeginActivity(St.Music, Rng.Range(10, 18));
         return true;
     }
 
     private void UpdateMusic(double dt, double now)
     {
-        if (!CheckSupport()) return;
-        if (T >= Dur) { Enter(St.Idle, Rng.Range(0.5, 1.2)); return; }
+        if (!HoldActivity(now)) return;
+        if (T >= Dur) { EndActivity(); return; }
         if (now >= musicNextNote)
         {
             musicNextNote = now + Rng.Range(0.6, 1.2);
@@ -180,6 +252,7 @@ internal sealed partial class Pet
     // ------------------------------------------------------------------ lecture
 
     private double readNextTurn, readTurnAt = -10, readNextLine, readLaughUntil;
+    private const double PageTurnTime = 0.6;   // la page met 0,6 s à passer de droite à gauche
 
     /// <summary>Il s'assoit avec un livre : ses yeux suivent les lignes, il tourne les pages, parfois il rit.</summary>
     private bool StartRead()
@@ -189,17 +262,15 @@ internal sealed partial class Pet
         readTurnAt = -10;
         readNextLine = now + 0.6;
         readLaughUntil = 0;
+        BeginActivity(St.Read, Rng.Range(12, 22));
         lookX = -1; lookY = 1;
-        VX = 0;
-        app.Play(Snd.Click, 0.25);
-        Enter(St.Read, Rng.Range(12, 22));
         return true;
     }
 
     private void UpdateRead(double dt, double now)
     {
-        if (!CheckSupport()) return;
-        if (T >= Dur) { app.Play(Snd.Click, 0.25); Enter(St.Idle, Rng.Range(0.5, 1.2)); return; }
+        if (!HoldActivity(now)) return;
+        if (T >= Dur) { app.Play(Snd.Click, 0.25); EndActivity(); return; }
         if (now >= readNextTurn && T < Dur - 1)
         {
             readTurnAt = now;
@@ -226,17 +297,14 @@ internal sealed partial class Pet
         double now = Clock.Now;
         bubNextBlow = now + 0.9;
         bubBlowAt = -10;
-        lookX = 0; lookY = 0;
-        VX = 0;
-        app.Play(Snd.Click, 0.25);
-        Enter(St.Bubbles, Rng.Range(8, 14));
+        BeginActivity(St.Bubbles, Rng.Range(8, 14));
         return true;
     }
 
     private void UpdateBubbles(double dt, double now)
     {
-        if (!CheckSupport()) return;
-        if (T >= Dur) { Enter(St.Idle, Rng.Range(0.5, 1.2)); return; }
+        if (!HoldActivity(now)) return;
+        if (T >= Dur) { EndActivity(); return; }
         if (now >= bubNextBlow && T < Dur - 0.6)
         {
             bubBlowAt = now;
@@ -254,6 +322,12 @@ internal sealed partial class Pet
     // ------------------------------------------------------------------ poses
 
     private PetPose ActivityPose()
+    {
+        var p = ActivityPoseCore();
+        return perched ? Perch(p) : p;
+    }
+
+    private PetPose ActivityPoseCore()
     {
         double now = Clock.Now;
         switch (State)
@@ -280,11 +354,14 @@ internal sealed partial class Pet
             }
             case St.Read:
             {
-                bool turning = now - readTurnAt < 0.3, laugh = now < readLaughUntil;
+                // une page qui tourne : sa main la soulève et l'emmène à gauche, ses yeux la suivent
+                double ts = now - readTurnAt;
+                int turn = ts >= 0 && ts < PageTurnTime ? 1 + (int)(ts / PageTurnTime * PetPainter.PageTurnFrames) : 0;
+                bool laugh = now < readLaughUntil;
                 return PetPose.Sitting with
                 {
-                    Prop = Prop.Book, PropF = turning ? 1 : 0,
-                    LookX = laugh ? 0 : lookX, LookY = 1,
+                    Prop = Prop.Book, PropF = turn,
+                    LookX = turn > 0 ? (turn <= 2 ? 1 : turn <= 4 ? 0 : -1) : laugh ? 0 : lookX, LookY = 1,
                     Eyes = laugh ? Eyes.Happy : Eyes.Open,
                     Mouth = laugh ? Mouth.Grin : Mouth.None,
                     L = Arm.Hidden, R = Arm.Hidden,

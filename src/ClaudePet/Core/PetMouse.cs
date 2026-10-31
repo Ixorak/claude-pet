@@ -24,8 +24,11 @@ internal sealed partial class Pet
     private double grabCooldown;
     private bool cursorWasInZone;
     private bool hangCalm;
-    private double hangGrabX, hangGrabY, hangUntil, sitUntil, attachedAt;
+    private double hangGrabX, hangGrabY, hangUntil, attachedAt;
     private double sitNextHum, sitBlissUntil;   // assis sur le pointeur : il fredonne de temps en temps
+    private bool sitDozing;                     // assis sur le pointeur, endormi (Ixorak est absent)
+    private double sitTestEnd;                  // outil de test : fin du test « assis sur le pointeur »
+    private bool perchTest;                     // outil de test : occupations permises pendant ce test
 
     // Balancement au bout du pointeur : un pendule. Le centre du corps (« bob ») est une masse au bout d'un fil
     // rigide accroché à la main qui tient le pointeur ; le dessin tourne autour de la main.
@@ -504,8 +507,9 @@ internal sealed partial class Pet
         pivPX = c.X; pivPY = c.Y;
         if (T >= Dur)
         {
-            sitUntil = now + Rng.Range(40, 120);
             sitNextHum = now + Rng.Range(1.5, 3.0);
+            perchNextActivity = now + Rng.Range(5, 12);
+            sitDozing = false;
             app.Play(Snd.Happy, 0.4);
             Enter(St.SitCursor);
         }
@@ -513,13 +517,44 @@ internal sealed partial class Pet
 
     private double SitOnCursorOffset => 5.5 * RenderScale;
 
+    /// <summary>
+    /// Assis sur le pointeur : il y reste tant qu'Ixorak ne le secoue pas pour le faire tomber. Il balance les jambes,
+    /// fredonne, se trouve des occupations ; si Ixorak s'absente, il s'endort dessus.
+    /// </summary>
     private void UpdateSitCursor(double dt, double now)
     {
         var c = app.Cursor;
         if (CursorOnFullscreen()) { DropFromCursor(false, now); return; }
         if (Shaken(now)) { DropFromCursor(true, now); return; }
+        if (sitTestEnd > 0 && now >= sitTestEnd) { sitTestEnd = 0; perchTest = false; DropFromCursor(false, now); return; }
         X = c.X;
         Y = c.Y + SitOnCursorOffset;
+        // Ixorak ne touche plus au PC depuis 2 min : il s'endort sur le pointeur ; il se réveille à son retour
+        double idle = SysInfo.UserIdleSeconds;
+        if (!sitDozing && idle > 120)
+        {
+            sitDozing = true;
+            nextZ = now + 0.8;
+            app.Play(Snd.Yawn, 0.35);
+            Log.Write("Ixorak est absent : Pet s'endort sur le pointeur");
+        }
+        else if (sitDozing && idle < 1.5)
+        {
+            sitDozing = false;
+            sitBlissUntil = now + 0.6;
+            perchNextActivity = Math.Max(perchNextActivity, now + Rng.Range(4, 8));
+        }
+        if (sitDozing)
+        {
+            if (now >= nextZ)
+            {
+                nextZ = now + 1.4;
+                HeadPoint(out double zx, out double zy);
+                app.Fx.Add(FxKind.Zed, zx + Facing * BodyW * 0.32, zy - Scale * 2, Facing * 22 * K, -42 * K, 2.4, zVariant % 3);
+                zVariant++;
+            }
+            return;
+        }
         if (Clock.Now >= nextLookChange)
         {
             nextLookChange = now + Rng.Range(1.0, 3.0);
@@ -535,10 +570,11 @@ internal sealed partial class Pet
             int side = Rng.Sign();
             app.Fx.Add(FxKind.Note, hx + side * BodyW * 0.4, hy - Scale * 2, side * Rng.Range(10, 25) * K, -Rng.Range(40, 60) * K, 1.4);
         }
-        if (now > sitUntil)
+        // et il se trouve une occupation, là, sur le pointeur
+        if (now >= perchNextActivity && (sitTestEnd == 0 || perchTest))
         {
-            Resolve();
-            StartFall(Rng.Sign() * BodyW * 0.8, -Math.Sqrt(2 * G * HH * 0.5), AirKind.Jump);
+            perchNextActivity = now + Rng.Range(10, 20);
+            if (perchTest || Rng.Chance(0.8)) StartPerchActivity();
         }
     }
 
@@ -592,8 +628,8 @@ internal sealed partial class Pet
     /// </summary>
     private void AimArms(int wiggle, out Arm left, out Arm right)
     {
-        left = AimArm(false, 7 + wiggle, ref aimCrossL);
-        right = AimArm(true, 8 - wiggle, ref aimCrossR);
+        left = AimArm(false, 5 + wiggle, ref aimCrossL);
+        right = AimArm(true, 6 - wiggle, ref aimCrossR);
     }
 
     /// <summary>
@@ -728,6 +764,16 @@ internal sealed partial class Pet
             }
             case St.SitCursor:
             {
+                if (sitDozing)
+                {
+                    // endormi sur le pointeur : les jambes pendent, il respire doucement
+                    bool inhale = ((int)(T / 1.6) & 1) == 0;
+                    return PetPose.Stand with
+                    {
+                        Legs = Legs.Dangle, L = Arm.Down, R = Arm.Down, BodyW = inhale ? 24 : 25, BodyH = inhale ? 16 : 15,
+                        Eyes = Eyes.Closed, LookY = 1, Mouth = inhale ? Mouth.None : Mouth.SmallO,
+                    };
+                }
                 // assis sur le pointeur : il balance les jambes comme un enfant, tout sourire
                 int ph = (int)(T * 4.4) & 3;
                 bool bliss = Clock.Now < sitBlissUntil;

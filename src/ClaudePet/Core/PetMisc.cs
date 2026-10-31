@@ -43,7 +43,8 @@ internal sealed partial class Pet
             case "swinglow": SwingLowTest(now); break;
             case "reachtest": ReachTest(now); break;
             case "pettest": PetTest(now); break;
-            case "sittest": SitTest(now); break;
+            case "sittest": SitTest(now, 6, false); break;
+            case "perchtest": SitTest(now, 24, true); break;
             case "climbwin": Log.Write("Escalade d'une fenêtre : " + TryClimbWindow()); break;
             case "climb": if (State != St.Hidden) Log.Write("Grimper : " + GoClimb()); break;
             case "jumpwin": if (State != St.Hidden) Log.Write("Saut vers une fenêtre : " + TryJumpToWindow()); break;
@@ -65,7 +66,8 @@ internal sealed partial class Pet
     }
 
     /// <summary>Outil de test : il est au sol, libre de commencer une occupation.</summary>
-    private bool CanStartActivity() => (State is St.Idle or St.Sit or St.Look or St.Walk || BusyWithActivity) && Supported();
+    private bool CanStartActivity() => State == St.SitCursor || (perched && BusyWithActivity)
+        || ((State is St.Idle or St.Sit or St.Look or St.Walk || BusyWithActivity) && Supported());
 
     /// <summary>
     /// Outil de test du balancement : un pointeur imaginaire (la vraie souris ne bouge pas) attrapé au-dessus de Pet,
@@ -144,21 +146,27 @@ internal sealed partial class Pet
         Log.Write("Test : bras levés vers un pointeur imaginaire");
     }
 
-    /// <summary>Test : assis 6 s sur un pointeur imaginaire immobile, au-dessus de lui, puis il saute.</summary>
-    private void SitTest(double now0)
+    /// <summary>
+    /// Test : assis sur un pointeur imaginaire immobile, au-dessus de lui, pendant <paramref name="dur"/> s, puis il
+    /// tombe. <paramref name="withActivity"/> : il se trouve tout de suite une occupation, sur le pointeur.
+    /// </summary>
+    private void SitTest(double now0, double dur, bool withActivity)
     {
         if (!Physical || State == St.Air) return;
         double sx = X, sy = Y - HH * 2.5;
-        app.Cursor.FakeUntil = now0 + 6.5;
+        app.Cursor.FakeUntil = now0 + dur + 0.5;
         app.Cursor.Fake = t => (sx, sy);
         app.Cursor.Update(now0);
         LeaveSurface();
         VX = 0; VY = 0;
         X = sx; Y = sy + SitOnCursorOffset;
-        sitUntil = now0 + 6;
+        sitTestEnd = now0 + dur;
+        perchTest = withActivity;
         sitNextHum = now0 + 1.0;
+        perchNextActivity = now0 + 1.0;
+        sitDozing = false;
         Enter(St.SitCursor);
-        Log.Write("Test : assis sur un pointeur imaginaire");
+        Log.Write("Test : assis sur un pointeur imaginaire" + (withActivity ? ", avec une occupation" : ""));
     }
 
     /// <summary>Test : un pointeur imaginaire caresse Pet pendant 4 s.</summary>

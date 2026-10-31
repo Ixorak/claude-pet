@@ -96,7 +96,9 @@ servent à la compter).
   mesure, danse un peu, des notes s'envolent), lire un livre (ses yeux suivent les lignes, il tourne les pages, rit
   parfois), souffler des bulles de savon.
 - **Assis sur le pointeur** : il sourit tout le temps et balance les jambes comme un enfant ; de temps en temps il ferme
-  les yeux de bonheur et fredonne une note.
+  les yeux de bonheur et fredonne une note. **Il y reste tant que tu ne le secoues pas** (ou que le pointeur ne passe
+  pas sur un écran en plein écran), et il y fait ses occupations : café, ordinateur sur les genoux, musique, livre,
+  bulles. Si tu t'absentes 2 minutes, il s'endort dessus, et se réveille quand tu reviens.
 - **Il grimpe plus souvent** : il escalade les côtés d'une page agrandie (une fenêtre maximisée), même quand le sol
   continue sur l'écran voisin ; il saute sur les fenêtres et escalade leurs côtés plus souvent, et quand il n'y a rien
   à portée, il essaie une autre escalade au lieu de rester en bas.
@@ -163,7 +165,7 @@ quand il est caché), et la sortie audio se ferme après 3 s de silence.
   8 s au plus après la fin de son temps pendu si on le balance encore.
 - **Pointeur au-dessus de lui (mode normal)** : 45 % du temps il saute tout de suite l'attraper ; sinon il lève les
   bras vers lui et saute 1 à 2,6 s plus tard si le pointeur reste là. Énervé, il saute toujours.
-- **Bras qui pointent** : 7 à 8 pixels d'art (ils en faisaient 12 à 13). Un bras levé de son côté penche d'au moins 17°
+- **Bras qui pointent** : 5 à 6 pixels d'art (ils en faisaient 12 à 13, puis 7 à 8). Un bras levé de son côté penche d'au moins 17°
   vers l'extérieur. Un bras passe devant le corps quand le pointeur, vu de son épaule, est à plus de 65° de la verticale
   (il revient de son côté sous 55°, pour ne pas hésiter à la limite) ; il part alors d'une épaule plus basse, l'ancienne,
   pour passer sous l'œil.
@@ -180,6 +182,11 @@ quand il est caché), et la sortie audio se ferme après 3 s de silence.
   environ une décision sur cinq en mode normal, un peu plus en mode calme (toutes y sont permises), moins quand il a
   faim. Un clic, un glisser, une baie, les bulles d'options ou le retour à la maison les interrompent. L'ordinateur
   porte une petite étoile orange au dos de l'écran.
+- **Sur le pointeur** : plus de durée limite (avant : 40 s à 2 min, puis il sautait). Une occupation 5 à 12 s après
+  s'être assis, puis une tentative toutes les 10 à 20 s (4 fois sur 5). Endormi dessus après 2 min sans clavier ni
+  souris. Assis immobile : 20 images par seconde, 60 quand le pointeur bouge, 2 à 4 quand il dort dessus.
+- **Page qui tourne** : 6 images en 0,6 s ; sa main droite soulève la page, l'emmène à gauche et la repose, ses yeux
+  la suivent.
 - **Escalade des pages** : une page, c'est une fenêtre agrandie qui couvre l'écran où il est ; il monte de 1,5 à 8 fois
   sa hauteur, puis saute, lâche prise ou redescend, comme pour un mur. Si la page est réduite ou fermée pendant qu'il
   grimpe, il tombe. Nouveaux poids de ses décisions en mode normal : marcher 40 → 28, sauter sur une fenêtre 9 → 14,
@@ -194,7 +201,7 @@ quand il est caché), et la sortie audio se ferme après 3 s de silence.
   (une autre icône comme maison), `--cmd "<commande>"` (envoie une commande à Pet qui tourne : `state`, `feed`,
   `hunger 3.5`, `windows`, `fs 1 on`, `stats`, `debug climb`, `debug climbwin`, et des tests avec un pointeur
   imaginaire qui ne touchent pas à la vraie souris : `debug swingtest`, `debug swinglow`, `debug reachtest`,
-  `debug pettest`, `debug sittest` ; ses occupations : `debug coffee`, `debug laptop`, `debug music`, `debug read`,
+  `debug pettest`, `debug sittest`, `debug perchtest` (assis sur le pointeur, avec une occupation) ; ses occupations : `debug coffee`, `debug laptop`, `debug music`, `debug read`,
   `debug bubbles` ; son humeur : `debug happy`, `debug meh`, `debug sad` ; `debug climbpage`). Sans ces options, pas
   de journal, et Pet vit sa vie.
 - **Fichiers hors du projet** (créés par moi pour les tests, à supprimer quand tu veux) : le raccourci **PetDev** sur ton
@@ -233,3 +240,4 @@ avant de recompiler.
 9. `Bras qui pointent : plus courts, de leur côté quand le pointeur est au-dessus`
 10. `Humeur, clignements, occupations (café, ordinateur, musique, lecture, bulles), jambes qui balancent, escalade des
     pages`
+11. `Il reste sur le pointeur et y fait ses occupations ; bras encore plus courts ; page qui tourne refaite`

@@ -16,7 +16,7 @@ internal sealed partial class Pet
     /// <summary>Clic droit enfoncé sur un pixel visible de Pet : il se laisse caresser.</summary>
     public bool StartPetting(double now)
     {
-        if (homeBound || pressing) return false;
+        if (homeBound || pressing || OnCursor) return false;
         if (State is St.Hidden or St.Air or St.Dragged or St.HangCursor or St.ClimbCursor or St.SitCursor or St.JumpPrep
             or St.HomeJump or St.EnterDoor or St.ExitDoor or St.Dig or St.Underground or St.Emerge or St.Climb or St.Eat) return false;
         if (State == St.Sleep) WakeUp();

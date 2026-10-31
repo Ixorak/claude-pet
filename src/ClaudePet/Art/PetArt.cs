@@ -182,7 +182,18 @@ internal static class PetPainter
         ".KKKKKKKKKKKK.",
     };
 
-    /// <summary>Le livre ouvert sur ses genoux ; <see cref="PetPose.PropF"/> = 1 : une page en train de tourner.</summary>
+    /// <summary>Nombre d'images de l'animation d'une page qui tourne (<see cref="PetPose.PropF"/> de 1 à ce nombre).</summary>
+    public const int PageTurnFrames = 6;
+
+    // Une page qui tourne autour de la reliure (x = 7, rangées 1 à 5 du livre) : son bord libre part de la page de
+    // droite, se soulève, se dresse, passe à gauche et se repose. Pour chaque image : x du bord libre, et de combien
+    // il est soulevé (vers le haut).
+    private static readonly (int x, int up)[] PageEdge = { (12, 1), (11, 3), (10, 5), (4, 5), (3, 3), (2, 1) };
+
+    /// <summary>
+    /// Le livre ouvert sur ses genoux. <see cref="PetPose.PropF"/> de 1 à <see cref="PageTurnFrames"/> : une page tourne,
+    /// portée par sa main droite.
+    /// </summary>
     private static void DrawBook(ArtCanvas c, in PetPose p, int left, int right, uint body)
     {
         int bx = -7, by = p.BodyBottom - 3;
@@ -190,16 +201,56 @@ internal static class PetPainter
         {
             'K' => Pal.Outline, 'W' => Page, 's' => Ink, 'c' => BookCover, _ => 0u,
         });
-        if (p.PropF == 1)
-        {
-            // la page tourne : elle se dresse au-dessus de la reliure
-            for (int y = by - 4; y <= by; y++) { c.Set(-2, y, Pal.Outline); c.Set(1, y, Pal.Outline); }
-            c.Set(-1, by - 5, Pal.Outline); c.Set(0, by - 5, Pal.Outline);
-            for (int y = by - 4; y <= by; y++) { c.Set(-1, y, Page); c.Set(0, y, Page); }
-        }
         int mir = left + right;
         Paw(c, bx - 2, by + 3, body);
-        Paw(c, mir - (bx - 2) - 1, by + 3, body);
+        if (p.PropF < 1 || p.PropF > PageTurnFrames)
+        {
+            Paw(c, mir - (bx - 2) - 1, by + 3, body);
+            return;
+        }
+        // la page qui tourne : un quadrilatère entre la reliure et son bord libre soulevé
+        var (ex, up) = PageEdge[p.PropF - 1];
+        int sx = bx + 7, x2 = bx + ex;
+        int top0 = by + 1, bot0 = by + 5;               // la reliure (le bord fixe de la page)
+        int top1 = top0 - up, bot1 = bot0 - up;         // le bord libre
+        if (Math.Abs(x2 - sx) < 1) x2 = sx + 1;         // de face : une bande étroite
+        (double x, double y)[] quad = { (sx, top0), (x2, top1), (x2, bot1), (sx, bot0) };
+        FillQuad(c, quad, Page);
+        if (Math.Abs(x2 - sx) >= 4)
+        {
+            // une ligne de texte sur la page, tant qu'on la voit assez
+            int lx0 = Math.Min(sx, x2) + 1, lx1 = Math.Max(sx, x2) - 1, ly = (top0 + top1) / 2 + 2;
+            for (int x = lx0; x <= lx1; x++) c.Set(x, ly, Ink);
+        }
+        for (int i = 0; i < 4; i++)
+        {
+            var (ax, ay) = quad[i];
+            var (qx, qy) = quad[(i + 1) & 3];
+            Stroke(c, (int)ax, (int)ay, (int)qx, (int)qy, 1, Pal.Outline, int.MinValue);
+        }
+        // sa main droite tient le coin du haut de la page et l'emmène
+        Paw(c, x2 + (x2 >= sx ? 0 : -1), top1 - 1, body);
+    }
+
+    /// <summary>Remplit un quadrilatère convexe (rangée par rangée).</summary>
+    private static void FillQuad(ArtCanvas c, ReadOnlySpan<(double x, double y)> q, uint col)
+    {
+        double minY = double.MaxValue, maxY = double.MinValue;
+        foreach (var (_, y) in q) { minY = Math.Min(minY, y); maxY = Math.Max(maxY, y); }
+        for (int y = (int)Math.Ceiling(minY); y <= (int)Math.Floor(maxY); y++)
+        {
+            double lo = double.MaxValue, hi = double.MinValue;
+            for (int i = 0; i < q.Length; i++)
+            {
+                var (ax, ay) = q[i];
+                var (bx, by) = q[(i + 1) % q.Length];
+                if (y < Math.Min(ay, by) || y > Math.Max(ay, by)) continue;
+                double x = Math.Abs(by - ay) < 1e-9 ? Math.Min(ax, bx) : ax + (bx - ax) * (y - ay) / (by - ay);
+                double x2 = Math.Abs(by - ay) < 1e-9 ? Math.Max(ax, bx) : x;
+                lo = Math.Min(lo, Math.Min(x, x2)); hi = Math.Max(hi, Math.Max(x, x2));
+            }
+            for (int x = (int)Math.Ceiling(lo); x <= (int)Math.Floor(hi); x++) c.Set(x, y, col);
+        }
     }
 
     private static readonly uint Soap = Col.Rgb(0x8F, 0xE3, 0xFF), SoapFilm = Col.Rgb(0xD8, 0xF6, 0xFF);
@@ -278,7 +329,10 @@ internal static class PetPainter
         Paw(c, x + 6, y + 3, body);
     }
 
-    /// <summary>Une petite main de 2 × 2 avec son liseré (coins arrondis).</summary>
+    /// <summary>
+    /// Une petite main de 2 × 2 avec son liseré (coins arrondis), un peu plus claire que le corps pour qu'on la voie
+    /// devant lui.
+    /// </summary>
     private static void Paw(ArtCanvas c, int x, int y, uint body)
     {
         for (int i = 0; i < 2; i++)
@@ -286,7 +340,7 @@ internal static class PetPainter
             c.Set(x + i, y - 1, Pal.Outline); c.Set(x + i, y + 2, Pal.Outline);
             c.Set(x - 1, y + i, Pal.Outline); c.Set(x + 2, y + i, Pal.Outline);
         }
-        c.Rect(x, y, x + 1, y + 1, body);
+        c.Rect(x, y, x + 1, y + 1, Col.Lerp(body, Pal.Shine, 0.3));
     }
 
     private static readonly uint LidSilver = Col.Rgb(0xC9, 0xCE, 0xD6), LidShade = Col.Rgb(0xA7, 0xAE, 0xB9),
@@ -309,23 +363,24 @@ internal static class PetPainter
     private static void DrawLaptop(ArtCanvas c, in PetPose p, int left, int right, int top, uint body)
     {
         int open = Math.Clamp(p.PropF, 0, 2);
-        int lidTop = open switch { 2 => -8, 1 => -5, _ => -3 };     // rangée du liseré du haut de l'écran
+        int b = p.BodyBottom;                                         // au sol, l'ordinateur est par terre ; assis sur le pointeur, sur ses genoux
+        int lidTop = open switch { 2 => b - 4, _ => b - 1 };          // rangée du liseré du haut de l'écran
         // bras : du flanc vers le clavier (le bout disparaît derrière l'écran) ; ils tapent chacun leur tour
         if (open > 0)
         {
             int g = p.PropG & 3;
-            int ly = -5 - (g == 1 || g == 3 ? 1 : 0), ry = -5 - (g == 2 || g == 3 ? 1 : 0);
+            int ly = b - 1 - (g == 1 || g == 3 ? 1 : 0), ry = b - 1 - (g == 2 || g == 3 ? 1 : 0);
             FrontArm(c, left - 1, top + 9, -9, ly, body, int.MinValue);
             FrontArm(c, left - 1, top + 9, -9, ry, body, left + right);   // le bras droit, en miroir
         }
         // socle (clavier vu de face) et son liseré
-        c.Rect(-12, -2, 11, 0, Slate);
-        c.Rect(-11, -1, 10, -1, Keys);
+        c.Rect(-12, b + 2, 11, b + 4, Slate);
+        c.Rect(-11, b + 3, 10, b + 3, Keys);
         // écran
         if (open == 0) return;
-        c.Rect(-10, lidTop, 9, -2, Slate);
-        c.Rect(-9, lidTop + 1, 8, -3, LidSilver);
-        for (int x = -9; x <= 8; x++) c.Set(x, -3, LidShade);
+        c.Rect(-10, lidTop, 9, b + 2, Slate);
+        c.Rect(-9, lidTop + 1, 8, b + 1, LidSilver);
+        for (int x = -9; x <= 8; x++) c.Set(x, b + 1, LidShade);
         if (open == 2)
             c.Sprite(-3, lidTop + 1, SparkArt, ch => ch == 'o' ? Pal.Body : 0u);
     }

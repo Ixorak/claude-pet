@@ -204,9 +204,12 @@ internal sealed partial class Pet
         double d = BaseInterval();
         // sur une fenêtre : la suivre de près quand elle bouge
         if (supportHwnd != 0) d = Math.Min(d, SupportMovedRecently ? 1.0 / 60 : 0.1);
-        // un clignement en cours ou tout proche : ne pas le manquer
         double now = Clock.Now;
-        if (State is not (St.Sleep or St.Hidden or St.Underground) && (now < blinkEnd || nextBlink - now < d))
+        // assis sur le pointeur : le suivre de près quand il bouge
+        if (OnCursor && now - app.Cursor.LastMoveTime < 0.4) d = Math.Min(d, 1.0 / 60);
+        // un clignement en cours ou tout proche : ne pas le manquer
+        bool eyesShut = State is St.Sleep or St.Hidden or St.Underground || (State == St.SitCursor && sitDozing);
+        if (!eyesShut && (now < blinkEnd || nextBlink - now < d))
             d = Math.Min(d, Math.Max(0.02, Math.Min(1.0 / 30, nextBlink - now)));
         return d;
     }
@@ -228,6 +231,9 @@ internal sealed partial class Pet
             case St.Music:
             case St.Bubbles:
                 return 1.0 / 30;
+            case St.SitCursor:
+                // jambes qui se balancent : 20 images par seconde suffisent ; endormi sur le pointeur : presque rien
+                return sitDozing ? (UserAway ? 0.5 : 0.25) : 1.0 / 20;
             case St.Stunned:
             case St.Tapped:
             case St.ReachUp:
@@ -242,6 +248,7 @@ internal sealed partial class Pet
 
     public void Enter(St s, double dur = 0)
     {
+        if (!IsActivity(s)) perched = false; // une occupation sur le pointeur ne dure que tant qu'elle dure
         State = s;
         T = 0;
         Dur = dur;
@@ -271,15 +278,14 @@ internal sealed partial class Pet
     }
 
     /// <summary>Vrai quand Pet est soumis aux collisions (pas tenu, pas caché, pas dans une animation de porte ou de terrier).</summary>
-    public bool Physical => State switch
+    public bool Physical => !OnCursor && State switch
     {
-        St.Hidden or St.Dragged or St.ExitDoor or St.HomeJump or St.EnterDoor or St.Dig or St.Underground or St.Emerge
-            or St.HangCursor or St.ClimbCursor or St.SitCursor => false,
+        St.Hidden or St.Dragged or St.ExitDoor or St.HomeJump or St.EnterDoor or St.Dig or St.Underground or St.Emerge => false,
         _ => true,
     };
 
-    /// <summary>Accroché au pointeur : les clics d'Ixorak doivent passer à travers Pet.</summary>
-    public bool ClickThrough => State is St.HangCursor or St.ClimbCursor or St.SitCursor;
+    /// <summary>Accroché au pointeur (ou occupé, assis dessus) : les clics d'Ixorak doivent passer à travers Pet.</summary>
+    public bool ClickThrough => OnCursor;
 
     // ------------------------------------------------------------------ collisions
 

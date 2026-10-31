@@ -31,7 +31,7 @@ internal sealed partial class Pet
         feedRetarget = 0;
         ExclaimUntil = now + 0.6;
         ExclaimQuestion = false;
-        if (State is St.Sit or St.Look or St.Stretch or St.ReachUp || BusyWithActivity) Enter(St.Idle, 0.2);
+        if (State is St.Sit or St.Look or St.Stretch or St.ReachUp || (BusyWithActivity && !perched)) Enter(St.Idle, 0.2);
     }
 
     public void OnFeedingCancelled()

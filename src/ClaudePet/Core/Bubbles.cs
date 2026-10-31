@@ -158,7 +158,7 @@ internal sealed unsafe class Bubbles
     {
         if (!IsOpen) return;
         var pet = app.Pet;
-        if (pet.State is St.Hidden or St.Air or St.Dragged or St.HangCursor or St.SitCursor or St.ClimbCursor or St.HomeJump or St.EnterDoor or St.Dig)
+        if (pet.OnCursor || pet.State is St.Hidden or St.Air or St.Dragged or St.HomeJump or St.EnterDoor or St.Dig)
         {
             Close();
             return;

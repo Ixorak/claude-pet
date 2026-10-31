@@ -143,7 +143,7 @@ internal sealed partial class Pet
     /// <summary>L'écran de Pet est en plein écran : dès qu'il a les pieds au sol, il creuse et ressort ailleurs.</summary>
     private void CheckFullscreen()
     {
-        if (!Scr.Fullscreen || homeBound) return;
+        if (!Scr.Fullscreen || homeBound || OnCursor) return; // sur le pointeur : il attend d'avoir les pieds au sol
         switch (State)
         {
             case St.Hidden: case St.Underground: case St.Dig: case St.Emerge:

@@ -229,8 +229,8 @@ internal static class Sheets
                 if (cross) (sx, sy) = PetPainter.AimShoulder(stand, right, cross: true);
                 return PetPainter.AimArm(dxDraw - sx, py - sy, len, right, cross);
             }
-            var l = ArmTo(false, 7);
-            var r = ArmTo(true, 8);
+            var l = ArmTo(false, 5);
+            var r = ArmTo(true, 6);
             PetPainter.Draw(c, stand with { L = l, R = r, Eyes = Eyes.Wide, Mouth = Mouth.Smile, LookY = -1, LookX = Math.Sign(dxDraw) });
             int ox = (i % cols) * cw, oy = (i / cols) * ch;
             for (int cy = 0; cy < c.H; cy++)
@@ -271,7 +271,10 @@ internal static class Sheets
             laptop with { PropF = 2, PropG = 1, Mouth = Mouth.Flat }, laptop with { PropF = 2, PropG = 2, Mouth = Mouth.Smile },
             laptop with { PropF = 2, PropG = 3, LookY = -1, LookX = 1, Mouth = Mouth.SmallO },
             s with { Prop = Prop.Headphones, Mouth = Mouth.Smile }, s with { Prop = Prop.Headphones, Eyes = Eyes.Happy, Mouth = Mouth.Smile, BodyBottom = -5, BodyH = 15, LiftA = 1, L = Arm.Raised },
-            sit with { Prop = Prop.Book, LookY = 1, Mouth = Mouth.Flat }, sit with { Prop = Prop.Book, PropF = 1, LookY = 1, LookX = 1, Mouth = Mouth.SmallO },
+            sit with { Prop = Prop.Book, LookY = 1, Mouth = Mouth.Flat },
+            sit with { Prop = Prop.Book, PropF = 1, LookY = 1, LookX = 1 }, sit with { Prop = Prop.Book, PropF = 2, LookY = 1, LookX = 1 },
+            sit with { Prop = Prop.Book, PropF = 3, LookY = 1 }, sit with { Prop = Prop.Book, PropF = 4, LookY = 1 },
+            sit with { Prop = Prop.Book, PropF = 5, LookY = 1, LookX = -1 }, sit with { Prop = Prop.Book, PropF = 6, LookY = 1, LookX = -1 },
             s with { Prop = Prop.Wand, Mouth = Mouth.SmallO, R = Arm.Hidden }, s with { Prop = Prop.Wand, PropF = 1, Mouth = Mouth.SmallO, R = Arm.Hidden },
             s with { Legs = Legs.Swing, Kick = 0, L = Arm.Down, R = Arm.Down, Mouth = Mouth.Smile },
             s with { Legs = Legs.Swing, Kick = 1, L = Arm.Down, R = Arm.Down, Mouth = Mouth.Smile },

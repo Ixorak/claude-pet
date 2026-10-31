@@ -103,8 +103,8 @@ internal sealed partial class Pet
 
     private bool HomeReady => State switch
     {
-        St.Idle or St.Walk or St.Sit or St.Look or St.Stretch or St.Stunned or St.GetUp or St.JumpPrep
-            or St.Coffee or St.Laptop or St.Music or St.Read or St.Bubbles => true,
+        St.Idle or St.Walk or St.Sit or St.Look or St.Stretch or St.Stunned or St.GetUp or St.JumpPrep => true,
+        St.Coffee or St.Laptop or St.Music or St.Read or St.Bubbles => !perched,
         St.Land => T > 0.1,
         _ => false,
     };
